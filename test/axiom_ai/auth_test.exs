@@ -3,12 +3,12 @@ defmodule AxiomAi.AuthTest do
   doctest AxiomAi.Auth
 
   alias AxiomAi.Auth
-  alias AxiomAi.Provider.VertexAi
-  alias AxiomAi.Provider.OpenAi
   alias AxiomAi.Provider.Anthropic
-  alias AxiomAi.Provider.Local
-  alias AxiomAi.Provider.DeepSeek
   alias AxiomAi.Provider.Bedrock
+  alias AxiomAi.Provider.DeepSeek
+  alias AxiomAi.Provider.Local
+  alias AxiomAi.Provider.OpenAi
+  alias AxiomAi.Provider.VertexAi
 
   describe "get_gcp_token/1" do
     test "loads credentials from service account file" do
@@ -35,7 +35,8 @@ defmodule AxiomAi.AuthTest do
                 {:jwt_creation_error, _} -> :ok
                 {:request_error, _} -> :ok
                 {:http_error, _, _} -> :ok
-                {:asn1, _} -> :ok  # Invalid private key format
+                # Invalid private key format
+                {:asn1, _} -> :ok
                 other -> flunk("Unexpected error: #{inspect(other)}")
               end
           end
@@ -71,7 +72,8 @@ defmodule AxiomAi.AuthTest do
     test "handles service account key as map" do
       key_data = %{
         "type" => "service_account",
-        "private_key" => "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC...\n-----END PRIVATE KEY-----",
+        "private_key" =>
+          "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC...\n-----END PRIVATE KEY-----",
         "client_email" => "test@example.com"
       }
 
@@ -83,7 +85,8 @@ defmodule AxiomAi.AuthTest do
         {:ok, _token} -> :ok
         {:error, {:jwt_creation_error, _}} -> :ok
         {:error, :missing_private_key} -> :ok
-        {:error, {:asn1, _}} -> :ok  # Invalid private key format
+        # Invalid private key format
+        {:error, {:asn1, _}} -> :ok
         {:error, other} -> flunk("Unexpected error: #{inspect(other)}")
       end
     end
@@ -124,14 +127,26 @@ defmodule AxiomAi.AuthTest do
                         # but the integration flow worked
                         case reason do
                           %{status_code: 401} ->
-                            IO.puts("Skipping: Authentication failed (expected with test credentials)")
+                            IO.puts(
+                              "Skipping: Authentication failed (expected with test credentials)"
+                            )
+
                             :ok
+
                           %{status_code: 403} ->
-                            IO.puts("Skipping: Permission denied (expected with test credentials)")
+                            IO.puts(
+                              "Skipping: Permission denied (expected with test credentials)"
+                            )
+
                             :ok
+
                           %{status_code: 404} ->
-                            IO.puts("Skipping: Project not found (expected with test credentials)")
+                            IO.puts(
+                              "Skipping: Project not found (expected with test credentials)"
+                            )
+
                             :ok
+
                           other ->
                             flunk("Unexpected error: #{inspect(other)}")
                         end
@@ -140,8 +155,12 @@ defmodule AxiomAi.AuthTest do
                     e in RuntimeError ->
                       case Exception.message(e) do
                         "Failed to get access token: " <> _ ->
-                          IO.puts("Skipping: Token generation failed (expected with test credentials)")
+                          IO.puts(
+                            "Skipping: Token generation failed (expected with test credentials)"
+                          )
+
                           :ok
+
                         _ ->
                           flunk("Unexpected runtime error: #{inspect(e)}")
                       end
@@ -164,33 +183,35 @@ defmodule AxiomAi.AuthTest do
     test "sends 'hola' message to OpenAI" do
       # Skip test if API key is not provided
       api_key = System.get_env("OPENAI_API_KEY")
-      
+
       case api_key do
         nil ->
           IO.puts("Skipping OpenAI test: OPENAI_API_KEY not set")
           :skip
-          
+
         _ ->
           config = %{
             api_key: api_key,
             model: "gpt-3.5-turbo"
           }
-          
+
           case OpenAi.chat(config, "hola") do
             {:ok, %{response: response}} ->
               assert is_binary(response)
               assert String.length(response) > 0
               IO.puts("OpenAI response to 'hola': #{response}")
-              
+
             {:error, reason} ->
               # Allow test to pass if we get expected API errors
               case reason do
-                %{status_code: 401} -> 
+                %{status_code: 401} ->
                   IO.puts("Skipping: Invalid API key")
                   :ok
-                %{status_code: 429} -> 
+
+                %{status_code: 429} ->
                   IO.puts("Skipping: Rate limit exceeded")
                   :ok
+
                 other ->
                   flunk("Unexpected error: #{inspect(other)}")
               end
@@ -203,33 +224,35 @@ defmodule AxiomAi.AuthTest do
     test "sends 'hola' message to Anthropic" do
       # Skip test if API key is not provided
       api_key = System.get_env("ANTHROPIC_API_KEY")
-      
+
       case api_key do
         nil ->
           IO.puts("Skipping Anthropic test: ANTHROPIC_API_KEY not set")
           :skip
-          
+
         _ ->
           config = %{
             api_key: api_key,
             model: "claude-3-haiku-20240307"
           }
-          
+
           case Anthropic.chat(config, "hola") do
             {:ok, %{response: response}} ->
               assert is_binary(response)
               assert String.length(response) > 0
               IO.puts("Anthropic response to 'hola': #{response}")
-              
+
             {:error, reason} ->
               # Allow test to pass if we get expected API errors
               case reason do
-                %{status_code: 401} -> 
+                %{status_code: 401} ->
                   IO.puts("Skipping: Invalid API key")
                   :ok
-                %{status_code: 429} -> 
+
+                %{status_code: 429} ->
                   IO.puts("Skipping: Rate limit exceeded")
                   :ok
+
                 other ->
                   flunk("Unexpected error: #{inspect(other)}")
               end
@@ -242,36 +265,39 @@ defmodule AxiomAi.AuthTest do
     test "sends 'hola' message to Local AI" do
       # Skip test if endpoint is not provided
       endpoint = System.get_env("LOCAL_AI_ENDPOINT")
-      
+
       case endpoint do
         nil ->
           IO.puts("Skipping Local AI test: LOCAL_AI_ENDPOINT not set")
           :skip
-          
+
         _ ->
           config = %{
             endpoint: endpoint,
             model: "default"
           }
-          
+
           case Local.chat(config, "hola") do
             {:ok, %{response: response}} ->
               assert is_binary(response)
               assert String.length(response) > 0
               IO.puts("Local AI response to 'hola': #{response}")
-              
+
             {:error, reason} ->
               # Allow test to pass if we get connection errors
               case reason do
-                %{status_code: 401} -> 
+                %{status_code: 401} ->
                   IO.puts("Skipping: Authentication failed")
                   :ok
-                %{status_code: 404} -> 
+
+                %{status_code: 404} ->
                   IO.puts("Skipping: Endpoint not found")
                   :ok
+
                 {:econnrefused, _} ->
                   IO.puts("Skipping: Connection refused (service not running)")
                   :ok
+
                 other ->
                   flunk("Unexpected error: #{inspect(other)}")
               end
@@ -284,36 +310,39 @@ defmodule AxiomAi.AuthTest do
     test "sends 'hola' message to DeepSeek" do
       # Skip test if API key is not provided
       api_key = System.get_env("DEEPSEEK_API_KEY")
-      
+
       case api_key do
         nil ->
           IO.puts("Skipping DeepSeek test: DEEPSEEK_API_KEY not set")
           :skip
-          
+
         _ ->
           config = %{
             api_key: api_key,
             model: "deepseek-chat"
           }
-          
+
           case DeepSeek.chat(config, "hola") do
             {:ok, %{response: response}} ->
               assert is_binary(response)
               assert String.length(response) > 0
               IO.puts("DeepSeek response to 'hola': #{response}")
-              
+
             {:error, reason} ->
               # Allow test to pass if we get expected API errors
               case reason do
-                %{status_code: 401} -> 
+                %{status_code: 401} ->
                   IO.puts("Skipping: Invalid API key")
                   :ok
-                %{status_code: 429} -> 
+
+                %{status_code: 429} ->
                   IO.puts("Skipping: Rate limit exceeded")
                   :ok
-                %{status_code: 403} -> 
+
+                %{status_code: 403} ->
                   IO.puts("Skipping: Access forbidden")
                   :ok
+
                 other ->
                   flunk("Unexpected error: #{inspect(other)}")
               end
@@ -327,55 +356,63 @@ defmodule AxiomAi.AuthTest do
       # Skip test if AWS credentials are not available
       aws_access_key = System.get_env("AWS_ACCESS_KEY_ID")
       aws_secret_key = System.get_env("AWS_SECRET_ACCESS_KEY")
-      
+
       case {aws_access_key, aws_secret_key} do
         {nil, _} ->
           IO.puts("Skipping Bedrock test: AWS_ACCESS_KEY_ID not set")
           :skip
-          
+
         {_, nil} ->
           IO.puts("Skipping Bedrock test: AWS_SECRET_ACCESS_KEY not set")
           :skip
-          
+
         {_, _} ->
           config = %{
             model: "anthropic.claude-3-haiku-20240307-v1:0",
             region: "us-east-1"
           }
-          
+
           case Bedrock.chat(config, "hola") do
             {:ok, %{response: response}} ->
               assert is_binary(response)
               assert String.length(response) > 0
               IO.puts("Bedrock response to 'hola': #{response}")
-              
+
             {:error, reason} ->
               # Allow test to pass if we get expected AWS errors
               case reason do
-                {:request_error, _} -> 
+                {:request_error, _} ->
                   IO.puts("Skipping: AWS request failed (network/auth issue)")
                   :ok
-                %{status_code: 401} -> 
+
+                %{status_code: 401} ->
                   IO.puts("Skipping: Invalid AWS credentials")
                   :ok
-                %{status_code: 403} -> 
+
+                %{status_code: 403} ->
                   IO.puts("Skipping: Access denied (check IAM permissions)")
                   :ok
-                %{status_code: 404} -> 
+
+                %{status_code: 404} ->
                   IO.puts("Skipping: Model not found or not accessible")
                   :ok
-                %{status_code: 429} -> 
+
+                %{status_code: 429} ->
                   IO.puts("Skipping: Rate limit exceeded")
                   :ok
+
                 {:bedrock_error, _} ->
                   IO.puts("Skipping: Bedrock service error")
                   :ok
+
                 :no_aws_credentials ->
                   IO.puts("Skipping: No AWS credentials found")
                   :ok
+
                 :missing_model ->
                   IO.puts("Skipping: Model not specified")
                   :ok
+
                 other ->
                   flunk("Unexpected error: #{inspect(other)}")
               end

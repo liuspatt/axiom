@@ -73,6 +73,7 @@ defmodule AxiomAi.Auth do
 
     try do
       signer = create_signer(private_key)
+
       case Joken.encode_and_sign(claims, signer, header) do
         {:ok, jwt, _claims} -> {:ok, jwt}
         {:error, reason} -> {:error, {:jwt_creation_error, reason}}

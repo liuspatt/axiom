@@ -5,7 +5,7 @@ defmodule AxiomAi.BedrockAuth do
 
   @doc """
   Gets AWS credentials from configuration or environment.
-  
+
   Supports multiple authentication methods:
   - Direct access_key and secret_key in config
   - AWS environment variables (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
@@ -110,10 +110,13 @@ defmodule AxiomAi.BedrockAuth do
         case response do
           %{"choices" => [%{"message" => %{"content" => content}} | _]} ->
             {:ok, content}
+
           %{"content" => [%{"text" => text} | _]} ->
             {:ok, text}
+
           %{"outputs" => [%{"text" => text} | _]} ->
             {:ok, text}
+
           _ ->
             {:error, {:unexpected_response_format, response}}
         end

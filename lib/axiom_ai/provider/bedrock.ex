@@ -1,7 +1,7 @@
 defmodule AxiomAi.Provider.Bedrock do
   @moduledoc """
   AWS Bedrock provider implementation.
-  
+
   Supports multiple model families:
   - Anthropic Claude (anthropic.claude-*)
   - Amazon Titan (amazon.titan-*)
@@ -29,7 +29,7 @@ defmodule AxiomAi.Provider.Bedrock do
   def complete(config, prompt, options) do
     # Merge options into config for complete method
     merged_config = Map.merge(config, options)
-    
+
     with {:ok, aws_config} <- get_aws_config(merged_config),
          {:ok, model_id} <- get_model_id(merged_config),
          {:ok, region} <- get_region(merged_config),
@@ -63,16 +63,16 @@ defmodule AxiomAi.Provider.Bedrock do
     try do
       # Format payload based on model type
       payload = BedrockAuth.format_model_payload(model_id, message, config)
-      
+
       # Create and execute the request
       request = BedrockAuth.create_invoke_model_request(model_id, region, payload, aws_config)
-      
+
       case ExAws.request(request) do
         {:ok, %{status_code: 200, body: body}} ->
           case Jason.decode(body) do
             {:ok, response_data} ->
               BedrockAuth.parse_model_response(model_id, response_data)
-            
+
             {:error, reason} ->
               {:error, {:json_decode_error, reason}}
           end
@@ -81,10 +81,10 @@ defmodule AxiomAi.Provider.Bedrock do
           case Jason.decode(body) do
             {:ok, %{"message" => message}} ->
               {:error, %{status_code: status_code, message: message}}
-            
+
             {:ok, error_data} ->
               {:error, %{status_code: status_code, message: error_data}}
-            
+
             {:error, _} ->
               {:error, %{status_code: status_code, message: body}}
           end
