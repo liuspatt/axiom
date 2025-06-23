@@ -1,5 +1,8 @@
 # AxiomAI
 
+[![Hex.pm](https://img.shields.io/hexpm/v/axiom_ai.svg)](https://hex.pm/packages/axiom_ai)
+[![Documentation](https://img.shields.io/badge/docs-hexdocs-blue.svg)](https://hexdocs.pm/axiom_ai/)
+
 A unified Elixir client for multiple AI providers including Vertex AI, OpenAI, Anthropic Claude, DeepSeek, AWS Bedrock, and local AI models.
 
 ## Installation
@@ -10,6 +13,16 @@ Add `axiom_ai` to your list of dependencies in `mix.exs`:
 def deps do
   [
     {:axiom_ai, "~> 0.1.0"}
+  ]
+end
+```
+
+Or install directly from GitHub:
+
+```elixir
+def deps do
+  [
+    {:axiom_ai, git: "https://github.com/liuspatt/axiom.git"}
   ]
 end
 ```
@@ -155,10 +168,67 @@ client = AxiomAi.new(:bedrock, %{
 
 ### Local AI
 
+#### HTTP Endpoints (OpenAI-compatible, Ollama, etc.)
+
 ```elixir
 client = AxiomAi.new(:local, %{
   endpoint: "http://localhost:8080",
   model: "default"  # optional
+})
+
+{:ok, response} = AxiomAi.chat(client, "Hello!")
+```
+
+#### Predefined Models
+
+Use pre-configured local models for easy access:
+
+```elixir
+# Use a predefined Qwen model
+client = AxiomAi.new(:local, %{
+  predefined_model: "qwen2.5-0.5b"
+})
+
+{:ok, response} = AxiomAi.chat(client, "Hello, how are you?")
+IO.puts(response.response)
+
+# List available predefined models
+predefined_models = AxiomAi.LocalModels.list_models()
+IO.inspect(predefined_models)
+```
+
+**Available Predefined Models:**
+- `qwen2.5-0.5b`: Qwen2.5 0.5B (pythonx)
+- `qwen2.5-1.5b`: Qwen2.5 1.5B (pythonx)  
+- `qwen2.5-3b`: Qwen2.5 3B (pythonx)
+- `codellama-7b`: Code Llama 7B (http)
+- `llama3-8b`: Llama 3 8B (http)
+- `mistral-7b`: Mistral 7B (http)
+
+#### Custom Python Models
+
+```elixir
+# Execute custom Python script
+client = AxiomAi.new(:local, %{
+  python_script: """
+  import json
+  import sys
+  
+  def generate_response(model_path, prompt, max_tokens, temperature):
+    # Your custom model logic here
+    return f"Response from {model_path}: {prompt}"
+  
+  if __name__ == "__main__":
+    data = json.loads(sys.argv[1])
+    response = generate_response(
+      data["model_path"],
+      data["prompt"], 
+      data["max_tokens"],
+      data["temperature"]
+    )
+    print(json.dumps({"response": response}))
+  """,
+  model_path: "/path/to/your/model"
 })
 
 {:ok, response} = AxiomAi.chat(client, "Hello!")
