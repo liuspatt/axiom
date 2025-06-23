@@ -52,7 +52,7 @@ IO.puts(completion.completion)
 
 AxiomAI supports multiple authentication methods for Vertex AI:
 
-1. **Application Default Credentials (Recommended for development)**
+1. **Application Default Credentials**
    ```bash
    gcloud auth application-default login
    ```
@@ -63,7 +63,7 @@ AxiomAI supports multiple authentication methods for Vertex AI:
    })
    ```
 
-2. **Service Account Key File (Recommended for production)**
+2. **Service Account Key File**
    ```elixir
    client = AxiomAi.new(:vertex_ai, %{
      project_id: "your-project",
