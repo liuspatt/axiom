@@ -170,6 +170,8 @@ defmodule AxiomAi.Provider.Local do
 
   # Execute Python script
   defp execute_python_script(script_content, model_path, message, config, mode) do
+    script_path = nil
+
     try do
       # Create temporary script file
       script_path = create_temp_script(script_content)
@@ -184,28 +186,36 @@ defmodule AxiomAi.Provider.Local do
       json_input = Jason.encode!(input_data)
 
       # Execute Python script
-      case System.cmd("python3", [script_path, json_input]) do
-        {output, 0} ->
-          case Jason.decode(output) do
-            {:ok, %{"response" => response}} ->
-              case mode do
-                :chat -> {:ok, %{response: response}}
-                :complete -> {:ok, %{completion: response}}
-              end
+      result =
+        case System.cmd("python3", [script_path, json_input]) do
+          {output, 0} ->
+            case Jason.decode(output) do
+              {:ok, %{"response" => response}} ->
+                case mode do
+                  :chat -> {:ok, %{response: response}}
+                  :complete -> {:ok, %{completion: response}}
+                end
 
-            {:ok, %{"error" => error}} ->
-              {:error, {:python_execution_error, error}}
+              {:ok, %{"error" => error}} ->
+                {:error, {:python_execution_error, error}}
 
-            {:error, reason} ->
-              {:error, {:json_decode_error, reason}}
-          end
+              {:error, reason} ->
+                {:error, {:json_decode_error, reason}}
+            end
 
-        {error_output, exit_code} ->
-          {:error, {:python_script_failed, exit_code, error_output}}
-      end
+          {error_output, exit_code} ->
+            {:error, {:python_script_failed, exit_code, error_output}}
+        end
+
+      result
     rescue
       e ->
         {:error, {:script_execution_error, Exception.message(e)}}
+    after
+      # Clean up temporary script file
+      if script_path && File.exists?(script_path) do
+        File.rm(script_path)
+      end
     end
   end
 
