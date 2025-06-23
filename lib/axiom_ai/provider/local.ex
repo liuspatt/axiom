@@ -13,6 +13,7 @@ defmodule AxiomAi.Provider.Local do
 
   # Track Python initialization state to avoid multiple init calls
   @python_init_key :axiom_ai_python_initialized
+  @python_globals_key :axiom_ai_python_globals
 
   @impl true
   def chat(config, message) do
@@ -231,9 +232,12 @@ defmodule AxiomAi.Provider.Local do
       max_tokens = Map.get(config, :max_tokens, 1024)
       temperature = Map.get(config, :temperature, 0.7)
 
+      # Get or create process-specific globals to avoid concurrent access issues
+      process_globals = get_process_globals()
+
       # Execute the Python code with the inference function
-      # Using globals to maintain model cache as recommended in the blog
-      {result, _globals} =
+      # Using process-local globals to maintain model cache and avoid concurrency issues
+      {result, updated_globals} =
         Pythonx.eval(
           """
           #{python_code}
@@ -242,8 +246,11 @@ defmodule AxiomAi.Provider.Local do
           response = generate_response("#{String.replace(model_path, "\"", "\\\"")}", "#{String.replace(message, "\"", "\\\"")}", #{max_tokens}, #{temperature})
           response
           """,
-          %{}
+          process_globals
         )
+
+      # Store updated globals back to process dictionary
+      put_process_globals(updated_globals)
 
       # Decode the result
       response = Pythonx.decode(result)
@@ -276,6 +283,16 @@ defmodule AxiomAi.Provider.Local do
         # Already initialized, skip
         :ok
     end
+  end
+
+  # Get process-local Python globals to avoid concurrency issues
+  defp get_process_globals do
+    Process.get(@python_globals_key, %{})
+  end
+
+  # Store updated Python globals in process dictionary
+  defp put_process_globals(globals) do
+    Process.put(@python_globals_key, globals)
   end
 
   defp create_temp_script(script_content) do
