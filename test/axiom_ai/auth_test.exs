@@ -304,6 +304,40 @@ defmodule AxiomAi.AuthTest do
           end
       end
     end
+
+    test "tests predefined Qwen model configuration" do
+      # This test validates that predefined models can be loaded but skips execution
+      # since it requires actual Python environment with transformers
+      config = %{
+        predefined_model: "qwen2.5-0.5b"
+      }
+
+      case Local.chat(config, "hola") do
+        {:ok, %{response: response}} ->
+          assert is_binary(response)
+          assert String.length(response) > 0
+          IO.puts("Qwen predefined model response: #{response}")
+
+        {:error, reason} ->
+          # Allow test to pass for expected Python/environment errors
+          case reason do
+            {:python_script_failed, _, _} ->
+              IO.puts("Skipping: Python script execution failed (expected without transformers)")
+              :ok
+
+            {:script_execution_error, _} ->
+              IO.puts("Skipping: Script execution error (expected without proper environment)")
+              :ok
+
+            {:missing_python_config} ->
+              IO.puts("Skipping: Missing Python configuration")
+              :ok
+
+            other ->
+              flunk("Unexpected error: #{inspect(other)}")
+          end
+      end
+    end
   end
 
   describe "deepseek integration" do

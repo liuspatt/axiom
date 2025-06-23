@@ -31,7 +31,7 @@ defmodule AxiomAi.Config do
 
   def validate(:local, config) do
     config
-    |> validate_required([:endpoint])
+    |> validate_local_execution_type()
     |> Map.put_new(:model, "default")
   end
 
@@ -121,5 +121,46 @@ defmodule AxiomAi.Config do
     else
       config
     end
+  end
+
+  defp validate_local_execution_type(config) do
+    has_predefined = Map.has_key?(config, :predefined_model)
+    has_python = Map.has_key?(config, :python_script) and Map.has_key?(config, :model_path)
+
+    has_pythonx =
+      Map.has_key?(config, :python_code) and Map.has_key?(config, :python_deps) and
+        Map.has_key?(config, :model_path)
+
+    has_endpoint = Map.has_key?(config, :endpoint)
+
+    cond do
+      has_predefined ->
+        # Predefined model configuration
+        config
+
+      has_python ->
+        # Python script execution
+        validate_python_config(config)
+
+      has_pythonx ->
+        # Pythonx execution
+        validate_pythonx_config(config)
+
+      has_endpoint ->
+        # HTTP endpoint (original behavior)
+        validate_required(config, [:endpoint])
+
+      true ->
+        raise ArgumentError,
+              "Local provider requires one of: :predefined_model, :python_script + :model_path, :python_code + :python_deps + :model_path, or :endpoint"
+    end
+  end
+
+  defp validate_python_config(config) do
+    validate_required(config, [:python_script, :model_path])
+  end
+
+  defp validate_pythonx_config(config) do
+    validate_required(config, [:python_code, :python_deps, :model_path])
   end
 end
