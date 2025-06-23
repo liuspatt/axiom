@@ -33,6 +33,7 @@ defmodule AxiomAi.MixProject do
       {:ex_aws, "~> 2.5"},
       {:hackney, "~> 1.9"},
       {:sweet_xml, "~> 0.7"},
+      {:pythonx, "~> 0.4.0"},
       {:ex_doc, "~> 0.31", only: :dev, runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev], runtime: false},
