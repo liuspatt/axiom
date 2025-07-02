@@ -5,6 +5,12 @@
 
 A unified Elixir client for multiple AI providers including Vertex AI, OpenAI, Anthropic Claude, DeepSeek, AWS Bedrock, and local AI models.
 
+## Prerequisites
+
+- Elixir 1.14 or later
+- Erlang/OTP 25 or later
+- Mix build tool
+
 ## Installation
 
 Add `axiom_ai` to your list of dependencies in `mix.exs`:
@@ -25,6 +31,99 @@ def deps do
     {:axiom_ai, git: "https://github.com/liuspatt/axiom.git"}
   ]
 end
+```
+
+Then run:
+
+```bash
+mix deps.get
+```
+
+## Quick Start
+
+1. **Install dependencies:**
+   ```bash
+   mix deps.get
+   ```
+
+2. **Set up authentication** (see [Authentication](#authentication-for-vertex-ai) section below)
+
+3. **Start using the library:**
+   ```elixir
+   # Example with Vertex AI
+   client = AxiomAi.new(:vertex_ai, %{project_id: "your-gcp-project"})
+   {:ok, response} = AxiomAi.chat(client, "Hello, how are you?")
+   ```
+
+## Local Development Setup
+
+### For GCP/Vertex AI Development
+
+1. **Install Google Cloud SDK:**
+   ```bash
+   # macOS
+   brew install google-cloud-sdk
+   
+   # Or download from: https://cloud.google.com/sdk/docs/install
+   ```
+
+2. **Authenticate with Google Cloud:**
+   ```bash
+   # Option 1: Application Default Credentials (recommended for local dev)
+   gcloud auth application-default login
+   
+   # Option 2: Set service account credentials
+   export GOOGLE_APPLICATION_CREDENTIALS="/path/to/service-account.json"
+   ```
+
+3. **Set your GCP project:**
+   ```bash
+   gcloud config set project YOUR_PROJECT_ID
+   ```
+
+4. **Enable required APIs:**
+   ```bash
+   gcloud services enable aiplatform.googleapis.com
+   ```
+
+### Environment Variables
+
+Create a `.env` file (add to `.gitignore`) for local development:
+
+```bash
+# GCP Configuration
+GOOGLE_CLOUD_PROJECT=your-project-id
+GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
+
+# Other provider API keys
+OPENAI_API_KEY=your-openai-key
+ANTHROPIC_API_KEY=your-anthropic-key
+DEEPSEEK_API_KEY=your-deepseek-key
+
+# AWS Configuration (if using Bedrock)
+AWS_ACCESS_KEY_ID=your-aws-access-key
+AWS_SECRET_ACCESS_KEY=your-aws-secret-key
+AWS_DEFAULT_REGION=us-east-1
+```
+
+### Testing the Setup
+
+Run the included example to verify your setup:
+
+```bash
+# Test with predefined local models
+mix run examples/local_models_usage.exs
+
+# Test with your GCP setup
+iex -S mix
+```
+
+In IEx:
+```elixir
+# Test Vertex AI connection
+client = AxiomAi.new(:vertex_ai, %{project_id: "your-project-id"})
+{:ok, response} = AxiomAi.chat(client, "Hello!")
+IO.puts(response.response)
 ```
 
 ## Usage
@@ -50,48 +149,115 @@ IO.puts(completion.completion)
 
 ### Authentication for Vertex AI
 
-AxiomAI supports multiple authentication methods for Vertex AI:
+AxiomAI supports multiple authentication methods for Vertex AI. Choose the method that best fits your environment:
 
-1. **Application Default Credentials**
-   ```bash
-   gcloud auth application-default login
-   ```
-   ```elixir
-   # No additional config needed - ADC is used automatically
-   client = AxiomAi.new(:vertex_ai, %{
-     project_id: "your-project"
-   })
-   ```
+#### 1. Application Default Credentials (Recommended for Local Development)
 
-2. **Service Account Key File**
-   ```elixir
-   client = AxiomAi.new(:vertex_ai, %{
-     project_id: "your-project",
-     service_account_path: "/path/to/service-account.json"
-   })
-   ```
+This is the easiest method for local development and automatically works in many Google Cloud environments:
 
-3. **Service Account Key (In-memory)**
-   ```elixir
-   service_account_key = %{
-     "type" => "service_account",
-     "client_email" => "your-service-account@your-project.iam.gserviceaccount.com",
-     "private_key" => "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
-   }
+```bash
+# Login and set up ADC
+gcloud auth application-default login
 
-   client = AxiomAi.new(:vertex_ai, %{
-     project_id: "your-project",
-     service_account_key: service_account_key
-   })
-   ```
+# Verify authentication
+gcloud auth application-default print-access-token
+```
 
-4. **Direct Access Token**
-   ```elixir
-   client = AxiomAi.new(:vertex_ai, %{
-     project_id: "your-project",
-     access_token: "your-access-token"
-   })
-   ```
+```elixir
+# No additional config needed - ADC is used automatically
+client = AxiomAi.new(:vertex_ai, %{
+  project_id: "your-project"
+})
+```
+
+**When to use:** Local development, Google Cloud Shell, Compute Engine instances with default service accounts.
+
+#### 2. Service Account Key File (Recommended for Production)
+
+Create and download a service account key file for production environments:
+
+```bash
+# Create a service account
+gcloud iam service-accounts create axiom-ai-service \
+  --description="Service account for AxiomAI" \
+  --display-name="AxiomAI Service Account"
+
+# Grant necessary permissions
+gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
+  --member="serviceAccount:axiom-ai-service@YOUR_PROJECT_ID.iam.gserviceaccount.com" \
+  --role="roles/aiplatform.user"
+
+# Create and download key file
+gcloud iam service-accounts keys create ~/axiom-ai-credentials.json \
+  --iam-account=axiom-ai-service@YOUR_PROJECT_ID.iam.gserviceaccount.com
+```
+
+```elixir
+client = AxiomAi.new(:vertex_ai, %{
+  project_id: "your-project",
+  service_account_path: "/path/to/service-account.json"
+})
+```
+
+**When to use:** Production environments, CI/CD pipelines, containers.
+
+#### 3. Service Account Key (In-memory)
+
+Load service account credentials directly into your application:
+
+```elixir
+# Load from file
+service_account_key = File.read!("/path/to/service-account.json") |> Jason.decode!()
+
+# Or define directly (not recommended for production)
+service_account_key = %{
+  "type" => "service_account",
+  "client_email" => "your-service-account@your-project.iam.gserviceaccount.com",
+  "private_key" => "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n",
+  "project_id" => "your-project"
+}
+
+client = AxiomAi.new(:vertex_ai, %{
+  project_id: "your-project",
+  service_account_key: service_account_key
+})
+```
+
+**When to use:** When you need to embed credentials in your application or load them from environment variables.
+
+#### 4. Direct Access Token
+
+Use a pre-obtained access token (useful for testing or special authentication flows):
+
+```bash
+# Get an access token manually
+gcloud auth print-access-token
+```
+
+```elixir
+client = AxiomAi.new(:vertex_ai, %{
+  project_id: "your-project",
+  access_token: "your-access-token"
+})
+```
+
+**When to use:** Testing, custom authentication flows, or when you already have an access token.
+
+#### Troubleshooting Authentication
+
+Common issues and solutions:
+
+- **"Permission denied" errors:** Ensure your service account has the `roles/aiplatform.user` role
+- **"Project not found":** Verify your project ID is correct and the AI Platform API is enabled
+- **"Invalid credentials":** Check that your service account key file is valid JSON and not corrupted
+- **ADC not working:** Run `gcloud auth application-default login` again or check `$GOOGLE_APPLICATION_CREDENTIALS`
+
+```bash
+# Debug authentication
+gcloud auth list
+gcloud config list project
+gcloud services list --enabled | grep aiplatform
+```
 
 ### Configuration Options
 

@@ -214,4 +214,5 @@ defmodule AxiomAi.LocalModelTest do
       IO.puts("\n=== Performance Test Completed ===")
     end
   end
+
 end
