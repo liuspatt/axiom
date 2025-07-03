@@ -4,12 +4,18 @@ defmodule AxiomAi.LocalModels.Categories do
   """
 
   @categories [
-    :text_generation,    # General text generation models (Qwen, Llama, etc.)
-    :code_generation,    # Code-specific models (CodeLlama, etc.)
-    :vision_language,    # Multi-modal vision+language models
-    :ocr,               # Optical Character Recognition models
-    :embedding,         # Text embedding models
-    :http_endpoints     # HTTP/API-based models (Ollama, vLLM, etc.)
+    # General text generation models (Qwen, Llama, etc.)
+    :text_generation,
+    # Code-specific models (CodeLlama, etc.)
+    :code_generation,
+    # Multi-modal vision+language models
+    :vision_language,
+    # Optical Character Recognition models
+    :ocr,
+    # Text embedding models
+    :embedding,
+    # HTTP/API-based models (Ollama, vLLM, etc.)
+    :http_endpoints
   ]
 
   @doc """

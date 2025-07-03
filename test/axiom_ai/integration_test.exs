@@ -235,5 +235,26 @@ defmodule AxiomAi.IntegrationTest do
         assert response.response == "Custom region response"
       end
     end
+
+    test "chat with service account credentials from fixtures" do
+      # Load service account credentials from fixtures
+      credentials_path = Path.join([__DIR__, "..", "fixtures", "credentials.json"])
+      {:ok, credentials_json} = File.read(credentials_path)
+      credentials = Jason.decode!(credentials_json)
+
+      config = %{
+        project_id: credentials["project_id"],
+        service_account_path: credentials_path,
+        region: "us-central1",
+        model: "gemini-2.5-flash",
+        temperature: 0.5,
+        max_tokens: 65536
+      }
+
+      client = AxiomAi.new(:vertex_ai, config)
+
+      assert {:ok, response} = AxiomAi.chat(client, "Hello with fixture credentials")
+      assert response.response != ""
+    end
   end
 end
