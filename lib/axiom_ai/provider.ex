@@ -4,6 +4,7 @@ defmodule AxiomAi.Provider do
   """
 
   @callback chat(config :: map(), message :: String.t()) :: {:ok, map()} | {:error, any()}
+  @callback chat(config :: map(), system_prompt :: String.t(), history :: list(), prompt :: String.t()) :: {:ok, map()} | {:error, any()}
   @callback complete(config :: map(), prompt :: String.t(), options :: map()) ::
               {:ok, map()} | {:error, any()}
 
@@ -14,6 +15,15 @@ defmodule AxiomAi.Provider do
   def chat(provider, config, message) do
     provider_module = get_provider_module(provider)
     provider_module.chat(config, message)
+  end
+
+  @doc """
+  Dispatches chat requests with system prompt, history, and user prompt to the appropriate provider.
+  """
+  @spec chat(atom(), map(), String.t(), list(), String.t()) :: {:ok, map()} | {:error, any()}
+  def chat(provider, config, system_prompt, history, prompt) do
+    provider_module = get_provider_module(provider)
+    provider_module.chat(config, system_prompt, history, prompt)
   end
 
   @doc """

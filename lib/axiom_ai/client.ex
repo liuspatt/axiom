@@ -21,6 +21,14 @@ defmodule AxiomAi.Client do
   end
 
   @doc """
+  Sends a chat message with system prompt, history, and user prompt using the configured provider.
+  """  
+  @spec chat(t(), String.t(), list(), String.t()) :: {:ok, map()} | {:error, any()}
+  def chat(%__MODULE__{provider: provider, config: config}, system_prompt, history, prompt) do
+    Provider.chat(provider, config, system_prompt, history, prompt)
+  end
+
+  @doc """
   Generates a completion using the configured provider.
   """
   @spec complete(t(), String.t(), map()) :: {:ok, map()} | {:error, any()}

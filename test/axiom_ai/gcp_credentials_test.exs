@@ -6,7 +6,6 @@ defmodule AxiomAi.GcpCredentialsTest do
 
   describe "GCP Vertex AI with real credentials" do
     test "chat with real GCP credentials" do
-
       service_account_path = "test/fixtures/credentials.json"
       {:ok, creds} = File.read(service_account_path)
       {:ok, creds_map} = Jason.decode(creds)
@@ -21,7 +20,9 @@ defmodule AxiomAi.GcpCredentialsTest do
 
         client = AxiomAi.new(:vertex_ai, config)
 
-        assert {:ok, response} = AxiomAi.chat(client, "Hello! Please respond with just 'Hi there!'")
+        assert {:ok, response} =
+                 AxiomAi.chat(client, "Hello! Please respond with just 'Hi there!'")
+
         assert is_binary(response.response)
         assert String.length(response.response) > 0
       else

@@ -61,5 +61,4 @@ defmodule AxiomAi.LocalModels do
   def register_model(model_key, category, config) do
     Registry.add_model(model_key, category, config)
   end
-
 end

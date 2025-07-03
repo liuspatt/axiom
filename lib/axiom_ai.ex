@@ -57,6 +57,27 @@ defmodule AxiomAi do
   end
 
   @doc """
+  Sends a chat message with system prompt, history, and user prompt.
+
+  ## Parameters
+    - client: The client instance
+    - system_prompt: The system prompt to set context
+    - history: List of previous messages in the conversation
+    - prompt: The current user message
+
+  ## Examples
+
+      iex> client = AxiomAi.new(:vertex_ai, %{project_id: "my-project"})
+      iex> AxiomAi.chat(client, "You are a helpful assistant", [], "Hello!")
+      {:ok, %{response: "Hello! How can I help you today?"}}
+  """
+  @spec chat(client(), String.t(), list(), String.t()) :: response()
+  def chat(%Client{} = client, system_prompt, history, prompt) 
+      when is_binary(system_prompt) and is_list(history) and is_binary(prompt) do
+    Client.chat(client, system_prompt, history, prompt)
+  end
+
+  @doc """
   Generates completions based on a prompt.
 
   ## Parameters
