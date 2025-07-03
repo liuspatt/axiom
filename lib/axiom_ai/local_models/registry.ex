@@ -191,7 +191,7 @@ defmodule AxiomAi.LocalModels.Registry do
     dependencies = [
       "torch >= 2.0.0",
       "torchvision >= 0.15.0",
-      "transformers >= 4.35.0", 
+      "transformers >= 4.35.0",
       "accelerate >= 0.20.0",
       "tokenizers >= 0.14.0",
       "numpy >= 1.24.0",
@@ -219,7 +219,7 @@ defmodule AxiomAi.LocalModels.Registry do
 
     def load_model(model_path):
         global _model, _tokenizer, _processor, _current_model_path
-        
+
         if _current_model_path != model_path:
             try:
                 _tokenizer = AutoTokenizer.from_pretrained(model_path)
@@ -234,7 +234,7 @@ defmodule AxiomAi.LocalModels.Registry do
             except Exception as e:
                 print(f"Error loading model: {e}")
                 raise e
-        
+
         return _tokenizer, _processor, _model
 
     def process_image(image_data):
@@ -248,7 +248,7 @@ defmodule AxiomAi.LocalModels.Registry do
                 image = Image.open(image_data)
             else:
                 image = image_data
-        
+
         return image.convert('RGB')
 
     def process_pdf(pdf_path, page_number=0):
@@ -257,17 +257,17 @@ defmodule AxiomAi.LocalModels.Registry do
             doc = fitz.open(pdf_path)
             if page_number >= len(doc):
                 page_number = 0  # Default to first page if page number is out of range
-            
+
             page = doc.load_page(page_number)
             # Render page to pixmap with good resolution
             mat = fitz.Matrix(2.0, 2.0)  # 2x zoom for better quality
             pix = page.get_pixmap(matrix=mat)
-            
+
             # Convert to PIL Image
             img_data = pix.tobytes("png")
             image = Image.open(io.BytesIO(img_data))
             doc.close()
-            
+
             return image.convert('RGB')
         except Exception as e:
             print(f"Error processing PDF: {e}")
@@ -276,14 +276,14 @@ defmodule AxiomAi.LocalModels.Registry do
     def generate_response(model_path, prompt, image_path=None, max_tokens=512, temperature=0.7):
         try:
             tokenizer, processor, model = load_model(model_path)
-            
+
             # Check if prompt contains an image path (format: "image_path|actual_prompt")
             if "|" in prompt and image_path is None:
                 parts = prompt.split("|", 1)
                 if len(parts) == 2:
                     image_path = parts[0].strip()
                     prompt = parts[1].strip()
-            
+
             if image_path and image_path != "":
                 try:
                     # Check if it's a PDF file
@@ -291,7 +291,7 @@ defmodule AxiomAi.LocalModels.Registry do
                         image = process_pdf(image_path, 0)  # Process first page
                     else:
                         image = Image.open(image_path).convert('RGB')
-                    
+
                     # Resize image to reduce memory usage
                     image = image.resize((512, 512), Image.LANCZOS)
                     inputs = processor(text=prompt, images=image, return_tensors="pt")
@@ -304,7 +304,7 @@ defmodule AxiomAi.LocalModels.Registry do
             else:
                 inputs = tokenizer(prompt, return_tensors="pt")
                 use_image = False
-            
+
             with torch.no_grad():
                 generated_ids = model.generate(
                     **inputs,
@@ -314,17 +314,17 @@ defmodule AxiomAi.LocalModels.Registry do
                     pad_token_id=tokenizer.eos_token_id,
                     num_beams=1       # Reduce beam size for memory efficiency
                 )
-            
+
             if use_image:
                 # For vision models, decode from input length
                 generated_ids = generated_ids[:, inputs['input_ids'].shape[1]:]
             else:
                 # For text-only, decode from input length
                 generated_ids = generated_ids[:, inputs.input_ids.shape[1]:]
-            
+
             response = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
             return response
-            
+
         except Exception as e:
             print(f"Error in generate_response: {e}")
             return f"Error: {str(e)}"
