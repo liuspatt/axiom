@@ -7,9 +7,12 @@ defmodule AxiomAi.Auth do
   Gets an access token for Google Cloud Platform authentication.
 
   Supports multiple authentication methods:
-  - Service account key file
-  - Application Default Credentials (ADC)
-  - Direct access token
+  - Direct access token (explicit token provided)
+  - Service account key data (JSON map)
+  - Service account key file (path to JSON file)
+  - Application Default Credentials (ADC):
+    * Cloud Run/GCE metadata service (production)
+    * gcloud CLI (local development)
   """
   @spec get_gcp_token(map()) :: {:ok, String.t()} | {:error, any()}
   def get_gcp_token(config) do
@@ -110,12 +113,49 @@ defmodule AxiomAi.Auth do
   end
 
   defp get_application_default_credentials do
+    # Try Cloud Run/GCE metadata service first (for production environments)
+    case get_metadata_service_token() do
+      {:ok, token} -> {:ok, token}
+      {:error, _} -> 
+        # Fallback to gcloud CLI (for local development)
+        get_gcloud_token()
+    end
+  end
+
+  defp get_metadata_service_token do
+    # Google Cloud metadata service endpoint
+    url = "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token"
+    headers = [{"Metadata-Flavor", "Google"}]
+    
+    case HTTPoison.get(url, headers, timeout: 5000, recv_timeout: 5000) do
+      {:ok, %{status_code: 200, body: body}} ->
+        case Jason.decode(body) do
+          {:ok, %{"access_token" => token}} -> {:ok, token}
+          {:ok, response} -> {:error, {:unexpected_metadata_response, response}}
+          {:error, reason} -> {:error, {:metadata_json_decode_error, reason}}
+        end
+
+      {:ok, %{status_code: status_code, body: body}} ->
+        {:error, {:metadata_http_error, status_code, body}}
+
+      {:error, %HTTPoison.Error{reason: :timeout}} ->
+        {:error, :metadata_timeout}
+
+      {:error, %HTTPoison.Error{reason: :nxdomain}} ->
+        {:error, :metadata_not_available}
+
+      {:error, reason} ->
+        {:error, {:metadata_request_error, reason}}
+    end
+  end
+
+  defp get_gcloud_token do
     case System.cmd("gcloud", ["auth", "application-default", "print-access-token"]) do
       {token, 0} ->
         {:ok, String.trim(token)}
 
       {error, _} ->
-        {:error, {:adc_error, error}}
+        {:error, {:gcloud_adc_error, error}}
     end
   end
 end
