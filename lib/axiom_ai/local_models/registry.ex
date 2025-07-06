@@ -72,6 +72,10 @@ defmodule AxiomAi.LocalModels.Registry do
 
   # Built-in model configurations
   defp get_builtin_models do
+    # Cache templates to avoid redundant calls
+    text_template = Templates.create_from_template(:pythonx_text)
+    speech_template = Templates.create_from_template(:pythonx_speech)
+    
     %{
       # Text Generation Models
       "qwen2.5-0.5b" => %{
@@ -79,8 +83,8 @@ defmodule AxiomAi.LocalModels.Registry do
         category: :text_generation,
         type: :pythonx,
         model_path: "Qwen/Qwen2.5-0.5B-Instruct",
-        python_deps: Templates.create_from_template(:pythonx_text).python_deps,
-        python_code: Templates.create_from_template(:pythonx_text).python_code,
+        python_deps: text_template.python_deps,
+        python_code: text_template.python_code,
         context_length: 32768,
         description: "Qwen2.5 0.5B - Small but capable model for general tasks"
       },
@@ -89,8 +93,8 @@ defmodule AxiomAi.LocalModels.Registry do
         category: :text_generation,
         type: :pythonx,
         model_path: "Qwen/Qwen2.5-1.5B-Instruct",
-        python_deps: Templates.create_from_template(:pythonx_text).python_deps,
-        python_code: Templates.create_from_template(:pythonx_text).python_code,
+        python_deps: text_template.python_deps,
+        python_code: text_template.python_code,
         context_length: 32768,
         description: "Qwen2.5 1.5B - Balance of performance and efficiency"
       },
@@ -99,8 +103,8 @@ defmodule AxiomAi.LocalModels.Registry do
         category: :text_generation,
         type: :pythonx,
         model_path: "Qwen/Qwen2.5-3B-Instruct",
-        python_deps: Templates.create_from_template(:pythonx_text).python_deps,
-        python_code: Templates.create_from_template(:pythonx_text).python_code,
+        python_deps: text_template.python_deps,
+        python_code: text_template.python_code,
         context_length: 32768,
         description: "Qwen2.5 3B - Good performance for most tasks"
       },
@@ -172,8 +176,8 @@ defmodule AxiomAi.LocalModels.Registry do
         category: :speech,
         type: :pythonx,
         model_path: "openai/whisper-large-v3",
-        python_deps: Templates.create_from_template(:pythonx_speech).python_deps,
-        python_code: Templates.create_from_template(:pythonx_speech).python_code,
+        python_deps: speech_template.python_deps,
+        python_code: speech_template.python_code,
         context_length: 30,
         description: "OpenAI Whisper Large v3 - High-quality speech-to-text model"
       },
@@ -182,8 +186,8 @@ defmodule AxiomAi.LocalModels.Registry do
         category: :speech,
         type: :pythonx,
         model_path: "openai/whisper-large-v3-turbo",
-        python_deps: Templates.create_from_template(:pythonx_speech).python_deps,
-        python_code: Templates.create_from_template(:pythonx_speech).python_code,
+        python_deps: speech_template.python_deps,
+        python_code: speech_template.python_code,
         context_length: 30,
         description: "OpenAI Whisper Large v3 Turbo - Fast speech-to-text model"
       }

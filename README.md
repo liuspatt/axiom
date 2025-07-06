@@ -48,24 +48,32 @@ client = AxiomAi.new(:local, %{predefined_model: "whisper-large-v3-turbo"})
 | **Anthropic** | API Key | `AxiomAi.new(:anthropic, %{api_key: "sk-..."})` |
 | **DeepSeek** | API Key | `AxiomAi.new(:deepseek, %{api_key: "sk-..."})` |
 | **AWS Bedrock** | AWS Credentials | `AxiomAi.new(:bedrock, %{model: "anthropic.claude-3-haiku-20240307-v1:0"})` |
-| **Local AI** | None | `AxiomAi.new(:local, %{endpoint: "http://localhost:8080"})` |
+| **Local AI** | None | `AxiomAi.new(:local, %{predefined_model: "qwen2.5-0.5b"})` |
 
 ## Predefined Local Models
 
 ```elixir
 # List available models
 models = AxiomAi.LocalModels.list_models()
-
-# Text generation
-"qwen2.5-0.5b", "qwen2.5-1.5b", "qwen2.5-3b"
-"llama3-8b", "mistral-7b", "codellama-7b"
-
-# Speech-to-text
-"whisper-large-v3", "whisper-large-v3-turbo"
-
-# OCR
-"nanonets-ocr-s"
+IO.inspect(models)
 ```
+
+**Available Models:**
+
+**Text Generation:**
+- `qwen2.5-0.5b` - Qwen2.5 0.5B
+- `qwen2.5-1.5b` - Qwen2.5 1.5B  
+- `qwen2.5-3b` - Qwen2.5 3B
+- `llama3-8b` - Llama 3 8B
+- `mistral-7b` - Mistral 7B
+- `codellama-7b` - Code Llama 7B
+
+**Speech-to-Text:**
+- `whisper-large-v3` - Whisper Large v3
+- `whisper-large-v3-turbo` - Whisper Large v3 Turbo
+
+**OCR:**
+- `nanonets-ocr-s` - Nanonets OCR Small
 
 ## Authentication
 
@@ -99,6 +107,104 @@ client = AxiomAi.new(:vertex_ai, %{
   temperature: 0.7,             # optional
   max_tokens: 1000             # optional
 })
+```
+
+## Credentials Configuration
+
+### Vertex AI Service Account Setup
+
+#### Method 1: Service Account File Path
+```elixir
+config = %{
+  project_id: "your-gcp-project",
+  service_account_path: "/path/to/service-account.json",
+  model: "gemini-1.5-pro",
+  region: "us-central1"
+}
+
+client = AxiomAi.new(:vertex_ai, config)
+```
+
+#### Method 2: Service Account Key Data
+```elixir
+# Load credentials from file
+{:ok, creds_json} = File.read("/path/to/service-account.json")
+{:ok, creds_map} = Jason.decode(creds_json)
+
+config = %{
+  project_id: "your-gcp-project",
+  service_account_key: creds_map,
+  model: "gemini-1.5-pro",
+  region: "us-central1"
+}
+
+client = AxiomAi.new(:vertex_ai, config)
+```
+
+#### Method 3: Direct Access Token
+```elixir
+config = %{
+  project_id: "your-gcp-project",
+  access_token: "ya29.your-access-token",
+  model: "gemini-1.5-pro",
+  region: "us-central1"
+}
+
+client = AxiomAi.new(:vertex_ai, config)
+```
+
+#### Method 4: Application Default Credentials (ADC)
+```elixir
+# Automatically detects environment and uses appropriate method:
+# - Cloud Run/GCE: Uses metadata service
+# - Local: Uses gcloud CLI
+config = %{
+  project_id: "your-gcp-project",
+  model: "gemini-1.5-pro",
+  region: "us-central1"
+}
+
+client = AxiomAi.new(:vertex_ai, config)
+```
+
+### Cloud Run Deployment
+
+**✅ Recommended: Use the default service account**
+```elixir
+# Cloud Run automatically provides credentials via metadata service
+config = %{
+  project_id: "your-gcp-project",
+  model: "gemini-1.5-pro"
+}
+```
+
+The library automatically detects Cloud Run environment and uses the metadata service for authentication. No additional configuration needed.
+
+**Alternative: Mount service account file**
+```dockerfile
+# In your Dockerfile
+COPY service-account.json /app/credentials.json
+```
+
+```elixir
+# In your application
+config = %{
+  project_id: "your-gcp-project",
+  service_account_path: "/app/credentials.json",
+  model: "gemini-1.5-pro"
+}
+```
+
+### Required IAM Permissions
+Ensure your service account has the following roles:
+- `roles/aiplatform.user` - For Vertex AI API access
+- `roles/ml.developer` - For ML model operations (optional)
+
+```bash
+# Grant permissions
+gcloud projects add-iam-policy-binding your-gcp-project \
+  --member="serviceAccount:your-service-account@your-gcp-project.iam.gserviceaccount.com" \
+  --role="roles/aiplatform.user"
 ```
 
 ## License

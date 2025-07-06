@@ -7,141 +7,86 @@ defmodule AxiomAi.WhisperTest do
   # Set timeout for ML model tests that require downloading dependencies
   @moduletag timeout: :infinity
 
+  # Helper function to test whisper models
+  defp test_whisper_model(model_key, model_name, audio_filename) do
+    # Test configuration for the predefined Whisper model
+    config = %{
+      predefined_model: model_key
+    }
+
+    # Path to test audio file
+    audio_path = Path.join([File.cwd!(), "test", "fixtures", audio_filename])
+
+    IO.puts("\n=== Testing #{model_name} ===")
+    IO.puts("Model: #{config.predefined_model}")
+    IO.puts("Audio file: #{audio_path}")
+
+    # Verify the model configuration exists
+    assert {:ok, model_config} = LocalModels.get_model_config(model_key)
+    IO.puts("Model config loaded: #{model_config.name}")
+    IO.puts("Model path: #{model_config.model_path}")
+    IO.puts("Execution type: #{model_config.type}")
+
+    # Verify audio file exists
+    assert File.exists?(audio_path), "Audio fixture file not found: #{audio_path}"
+
+    case Local.chat(config, "#{audio_path}|Transcribe this audio") do
+      {:ok, %{response: response}} ->
+        assert is_binary(response)
+        assert String.length(response) > 0
+        IO.puts("\n✅ SUCCESS: #{model_name} responded!")
+        IO.puts("Transcription: #{response}")
+        IO.puts("Response length: #{String.length(response)} characters")
+
+      {:error, reason} ->
+        # Handle expected errors when Python environment is not set up
+        case reason do
+          {:python_script_failed, exit_code, error_output} ->
+            IO.puts("\n⚠️  EXPECTED: Python script execution failed")
+            IO.puts("Exit code: #{exit_code}")
+            IO.puts("Error output: #{error_output}")
+
+            cond do
+              String.contains?(
+                error_output,
+                "ModuleNotFoundError: No module named 'transformers'"
+              ) ->
+                IO.puts("\n📝 To run this test successfully, install transformers:")
+                IO.puts("pip install transformers torch librosa")
+                # Mark test as skipped when dependencies are missing
+                raise ExUnit.SkipError, "Missing Python dependencies: transformers"
+
+              String.contains?(
+                error_output,
+                "ModuleNotFoundError: No module named 'librosa'"
+              ) ->
+                IO.puts("\n📝 To run this test successfully, install librosa:")
+                IO.puts("pip install librosa")
+                # Mark test as skipped when dependencies are missing
+                raise ExUnit.SkipError, "Missing Python dependencies: librosa"
+
+              true ->
+                IO.puts("\n📝 To run this test successfully, install required packages:")
+                IO.puts("pip install transformers torch librosa")
+                # Mark test as skipped when dependencies are missing
+                raise ExUnit.SkipError, "Missing Python dependencies"
+            end
+
+          other ->
+            IO.puts("\n⚠️  UNEXPECTED ERROR: #{inspect(other)}")
+            # Fail the test for unexpected errors
+            flunk("Unexpected error: #{inspect(other)}")
+        end
+    end
+  end
+
   describe "whisper predefined models" do
     test "transcribes audio file with Whisper Large v3 Turbo model" do
-      # Test configuration for the predefined Whisper Large v3 Turbo model
-      config = %{
-        predefined_model: "whisper-large-v3-turbo"
-      }
-
-      # Path to test audio file
-      audio_path = Path.join([File.cwd!(), "test", "fixtures", "test_audio.mp4"])
-
-      IO.puts("\n=== Testing Whisper Large v3 Turbo Model ===")
-      IO.puts("Model: #{config.predefined_model}")
-      IO.puts("Audio file: #{audio_path}")
-
-      # Verify the model configuration exists
-      assert {:ok, model_config} = LocalModels.get_model_config("whisper-large-v3-turbo")
-      IO.puts("Model config loaded: #{model_config.name}")
-      IO.puts("Model path: #{model_config.model_path}")
-      IO.puts("Execution type: #{model_config.type}")
-
-      # Verify audio file exists
-      assert File.exists?(audio_path), "Audio fixture file not found: #{audio_path}"
-
-      case Local.chat(config, "#{audio_path}|Transcribe this audio") do
-        {:ok, %{response: response}} ->
-          assert is_binary(response)
-          assert String.length(response) > 0
-          IO.puts("\n✅ SUCCESS: Whisper Large v3 Turbo responded!")
-          IO.puts("Transcription: #{response}")
-          IO.puts("Response length: #{String.length(response)} characters")
-
-        {:error, reason} ->
-          # Handle expected errors when Python environment is not set up
-          case reason do
-            {:python_script_failed, exit_code, error_output} ->
-              IO.puts("\n⚠️  EXPECTED: Python script execution failed")
-              IO.puts("Exit code: #{exit_code}")
-              IO.puts("Error output: #{error_output}")
-
-              cond do
-                String.contains?(
-                  error_output,
-                  "ModuleNotFoundError: No module named 'transformers'"
-                ) ->
-                  IO.puts("\n📝 To run this test successfully, install transformers:")
-                  IO.puts("pip install transformers torch librosa")
-                  :ok
-
-                String.contains?(
-                  error_output,
-                  "ModuleNotFoundError: No module named 'librosa'"
-                ) ->
-                  IO.puts("\n📝 To run this test successfully, install librosa:")
-                  IO.puts("pip install librosa")
-                  :ok
-
-                true ->
-                  IO.puts("\n📝 To run this test successfully, install required packages:")
-                  IO.puts("pip install transformers torch librosa")
-                  :ok
-              end
-
-            other ->
-              IO.puts("\n⚠️  UNEXPECTED ERROR: #{inspect(other)}")
-              :ok
-          end
-      end
+      test_whisper_model("whisper-large-v3-turbo", "Whisper Large v3 Turbo", "test_audio.mp4")
     end
 
     test "transcribes audio file with Whisper Large v3 model" do
-      # Test configuration for the predefined Whisper Large v3 model
-      config = %{
-        predefined_model: "whisper-large-v3"
-      }
-
-      # Path to test audio file
-      audio_path = Path.join([File.cwd!(), "test", "fixtures", "test_audio.wav"])
-
-      IO.puts("\n=== Testing Whisper Large v3 Model ===")
-      IO.puts("Model: #{config.predefined_model}")
-      IO.puts("Audio file: #{audio_path}")
-
-      # Verify the model configuration exists
-      assert {:ok, model_config} = LocalModels.get_model_config("whisper-large-v3")
-      IO.puts("Model config loaded: #{model_config.name}")
-      IO.puts("Model path: #{model_config.model_path}")
-      IO.puts("Execution type: #{model_config.type}")
-
-      # Verify audio file exists
-      assert File.exists?(audio_path), "Audio fixture file not found: #{audio_path}"
-
-      case Local.chat(config, "#{audio_path}|Transcribe this audio") do
-        {:ok, %{response: response}} ->
-          assert is_binary(response)
-          assert String.length(response) > 0
-          IO.puts("\n✅ SUCCESS: Whisper Large v3 responded!")
-          IO.puts("Transcription: #{response}")
-          IO.puts("Response length: #{String.length(response)} characters")
-
-        {:error, reason} ->
-          # Handle expected errors when Python environment is not set up
-          case reason do
-            {:python_script_failed, exit_code, error_output} ->
-              IO.puts("\n⚠️  EXPECTED: Python script execution failed")
-              IO.puts("Exit code: #{exit_code}")
-              IO.puts("Error output: #{error_output}")
-
-              cond do
-                String.contains?(
-                  error_output,
-                  "ModuleNotFoundError: No module named 'transformers'"
-                ) ->
-                  IO.puts("\n📝 To run this test successfully, install transformers:")
-                  IO.puts("pip install transformers torch librosa")
-                  :ok
-
-                String.contains?(
-                  error_output,
-                  "ModuleNotFoundError: No module named 'librosa'"
-                ) ->
-                  IO.puts("\n📝 To run this test successfully, install librosa:")
-                  IO.puts("pip install librosa")
-                  :ok
-
-                true ->
-                  IO.puts("\n📝 To run this test successfully, install required packages:")
-                  IO.puts("pip install transformers torch librosa")
-                  :ok
-              end
-
-            other ->
-              IO.puts("\n⚠️  UNEXPECTED ERROR: #{inspect(other)}")
-              :ok
-          end
-      end
+      test_whisper_model("whisper-large-v3", "Whisper Large v3", "test_audio.wav")
     end
   end
 
