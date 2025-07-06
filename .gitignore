@@ -55,3 +55,4 @@ Thumbs.db
 priv/plts/
 test/fixtures/service_account.json
 test/fixtures/credentials.json
+test/fixtures/test_audio.mp4

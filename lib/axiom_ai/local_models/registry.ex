@@ -164,6 +164,28 @@ defmodule AxiomAi.LocalModels.Registry do
         python_code: ocr_inference_code(),
         context_length: 8192,
         description: "Nanonets OCR Small - Optimized for optical character recognition tasks"
+      },
+
+      # Speech Models
+      "whisper-large-v3" => %{
+        name: "Whisper Large v3",
+        category: :speech,
+        type: :pythonx,
+        model_path: "openai/whisper-large-v3",
+        python_deps: Templates.create_from_template(:pythonx_speech).python_deps,
+        python_code: Templates.create_from_template(:pythonx_speech).python_code,
+        context_length: 30,
+        description: "OpenAI Whisper Large v3 - High-quality speech-to-text model"
+      },
+      "whisper-large-v3-turbo" => %{
+        name: "Whisper Large v3 Turbo",
+        category: :speech,
+        type: :pythonx,
+        model_path: "openai/whisper-large-v3-turbo",
+        python_deps: Templates.create_from_template(:pythonx_speech).python_deps,
+        python_code: Templates.create_from_template(:pythonx_speech).python_code,
+        context_length: 30,
+        description: "OpenAI Whisper Large v3 Turbo - Fast speech-to-text model"
       }
     }
   end

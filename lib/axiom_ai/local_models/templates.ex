@@ -17,7 +17,7 @@ defmodule AxiomAi.LocalModels.Templates do
   """
   @spec list_templates() :: [atom()]
   def list_templates do
-    [:pythonx_text, :pythonx_vision, :http_openai, :http_ollama, :custom]
+    [:pythonx_text, :pythonx_vision, :pythonx_speech, :http_openai, :http_ollama, :custom]
   end
 
   # Private template definitions
@@ -38,6 +38,16 @@ defmodule AxiomAi.LocalModels.Templates do
       python_deps: default_vision_dependencies(),
       python_code: default_vision_inference_code(),
       description: "Python-based vision-language model"
+    }
+  end
+
+  defp get_template(:pythonx_speech) do
+    %{
+      type: :pythonx,
+      context_length: 30,
+      python_deps: default_speech_dependencies(),
+      python_code: default_speech_inference_code(),
+      description: "Python-based speech-to-text model"
     }
   end
 
@@ -239,6 +249,145 @@ defmodule AxiomAi.LocalModels.Templates do
             generated_ids = generated_ids[:, inputs['input_ids'].shape[1]:]
             response = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
             return response
+            
+        except Exception as e:
+            return f"Error: {str(e)}"
+
+    # Export the function for Elixir to call
+    generate_response
+    """
+  end
+
+  # Default Python dependencies for speech models
+  defp default_speech_dependencies do
+    """
+    [project]
+    name = "speech_inference"
+    version = "0.1.0"
+    requires-python = "==3.10.*"
+    dependencies = [
+      "torch >= 2.0.0",
+      "transformers >= 4.35.0",
+      "accelerate >= 0.20.0",
+      "tokenizers >= 0.14.0",
+      "numpy >= 1.24.0",
+      "librosa >= 0.10.0",
+      "pydub >= 0.25.0"
+    ]
+    """
+  end
+
+  # Default Python inference code for speech models
+  defp default_speech_inference_code do
+    """
+    import torch
+    from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor
+    import librosa
+    import numpy as np
+    import os
+    import tempfile
+    from pydub import AudioSegment
+
+    # Global variables to cache model and processor
+    _model = None
+    _processor = None
+    _current_model_path = None
+
+    def load_model(model_path):
+        global _model, _processor, _current_model_path
+        
+        if _current_model_path != model_path:
+            _processor = AutoProcessor.from_pretrained(model_path)
+            _model = AutoModelForSpeechSeq2Seq.from_pretrained(
+                model_path,
+                torch_dtype=torch.float32,
+                device_map="cpu",
+                low_cpu_mem_usage=True
+            )
+            _current_model_path = model_path
+        
+        return _processor, _model
+
+    def process_audio(audio_path):
+        # Handle different audio formats
+        file_ext = os.path.splitext(str(audio_path))[1].lower()
+        
+        if file_ext in ['.mp4', '.m4a', '.mp3', '.flv', '.avi']:
+            # Use pydub to convert to wav format first
+            try:
+                # Ensure audio_path is a string
+                audio_path_str = str(audio_path)
+                audio_segment = AudioSegment.from_file(audio_path_str)
+                
+                # Convert to mono and set sample rate
+                audio_segment = audio_segment.set_channels(1).set_frame_rate(16000)
+                
+                # Create temporary wav file
+                with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as temp_wav:
+                    temp_wav_path = temp_wav.name
+                
+                # Export to temporary file
+                audio_segment.export(temp_wav_path, format='wav')
+                
+                # Load with librosa
+                audio, sr = librosa.load(temp_wav_path, sr=16000)
+                
+                # Clean up temporary file
+                try:
+                    os.unlink(temp_wav_path)
+                except:
+                    pass  # Ignore cleanup errors
+                
+                return audio
+                
+            except Exception as e:
+                print(f"Error converting audio format: {e}")
+                # Fall back to direct librosa loading
+                try:
+                    audio, sr = librosa.load(str(audio_path), sr=16000)
+                    return audio
+                except Exception as e2:
+                    raise Exception(f"Failed to load audio with both pydub and librosa: {e}, {e2}")
+        else:
+            # Direct loading for wav, flac, etc.
+            audio, sr = librosa.load(str(audio_path), sr=16000)
+            return audio
+
+    def generate_response(model_path, prompt, max_tokens=512, temperature=0.7):
+        try:
+            processor, model = load_model(model_path)
+            
+            # Speech models expect audio path in the prompt (format: "audio_path|actual_prompt")
+            audio_path = None
+            if "|" in prompt:
+                parts = prompt.split("|", 1)
+                if len(parts) == 2:
+                    audio_path = parts[0].strip()
+                    prompt = parts[1].strip()
+            
+            if audio_path and audio_path != "":
+                try:
+                    audio = process_audio(audio_path)
+                    inputs = processor(audio, sampling_rate=16000, return_tensors="pt")
+                except Exception as e:
+                    return f"Error processing audio: {str(e)}"
+            else:
+                return "Error: No audio file provided"
+            
+            # Whisper models have a max_target_positions limit of 448
+            # Reduce max_new_tokens to stay within bounds
+            safe_max_tokens = min(max_tokens, 224)  # Conservative limit for safety
+            
+            with torch.no_grad():
+                predicted_ids = model.generate(
+                    inputs["input_features"],
+                    max_new_tokens=safe_max_tokens,
+                    temperature=temperature,
+                    do_sample=False
+                )
+            
+            transcription = processor.batch_decode(predicted_ids, skip_special_tokens=True)[0]
+            return transcription
             
         except Exception as e:
             return f"Error: {str(e)}"
