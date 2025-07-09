@@ -35,4 +35,20 @@ defmodule AxiomAi.Client do
   def complete(%__MODULE__{provider: provider, config: config}, prompt, options) do
     Provider.complete(provider, config, prompt, options)
   end
+
+  @doc """
+  Streams a chat message using the configured provider.
+  """
+  @spec stream(t(), String.t()) :: {:ok, Enumerable.t()} | {:error, any()}
+  def stream(%__MODULE__{provider: provider, config: config}, message) do
+    Provider.stream(provider, config, message)
+  end
+
+  @doc """
+  Streams a chat message with system prompt, history, and user prompt using the configured provider.
+  """
+  @spec stream(t(), String.t(), list(), String.t()) :: {:ok, Enumerable.t()} | {:error, any()}
+  def stream(%__MODULE__{provider: provider, config: config}, system_prompt, history, prompt) do
+    Provider.stream(provider, config, system_prompt, history, prompt)
+  end
 end

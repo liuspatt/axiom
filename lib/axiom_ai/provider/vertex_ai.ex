@@ -111,6 +111,67 @@ defmodule AxiomAi.Provider.VertexAi do
     end
   end
 
+  @impl true
+  def stream(config, message) do
+    %{project_id: project_id, region: region, model: model} = config
+
+    endpoint = build_endpoint(project_id, region, model, "streamGenerateContent")
+
+    payload = %{
+      contents: [
+        %{
+          role: "user",
+          parts: [%{text: message}]
+        }
+      ],
+      generationConfig: %{
+        temperature: Map.get(config, :temperature, 0.7),
+        maxOutputTokens: Map.get(config, :max_tokens, 65536),
+        topK: Map.get(config, :top_k, 40),
+        topP: Map.get(config, :top_p, 0.95)
+      }
+    }
+
+    headers = build_headers(config)
+
+    case Http.post_stream(endpoint, payload, headers) do
+      {:ok, response} ->
+        {:ok, response}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  @impl true
+  def stream(config, system_prompt, history, prompt) do
+    %{project_id: project_id, region: region, model: model} = config
+
+    endpoint = build_endpoint(project_id, region, model, "streamGenerateContent")
+
+    contents = build_contents(system_prompt, history, prompt)
+
+    payload = %{
+      contents: contents,
+      generationConfig: %{
+        temperature: Map.get(config, :temperature, 0.7),
+        maxOutputTokens: Map.get(config, :max_tokens, 65536),
+        topK: Map.get(config, :top_k, 40),
+        topP: Map.get(config, :top_p, 0.95)
+      }
+    }
+
+    headers = build_headers(config)
+
+    case Http.post_stream(endpoint, payload, headers) do
+      {:ok, response} ->
+        {:ok, response}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
   defp build_endpoint(project_id, region, model, action) do
     base_region_url = String.replace(@base_url, "us-central1", region)
 
@@ -172,7 +233,7 @@ defmodule AxiomAi.Provider.VertexAi do
     }
 
     model_system_response = %{
-      role: "model", 
+      role: "model",
       parts: [%{text: "I understand. I'll follow your instructions."}]
     }
 
@@ -180,11 +241,11 @@ defmodule AxiomAi.Provider.VertexAi do
       %{role: role, content: content} ->
         vertex_role = if role == "assistant", do: "model", else: "user"
         %{role: vertex_role, parts: [%{text: content}]}
-      
+
       %{"role" => role, "content" => content} ->
         vertex_role = if role == "assistant", do: "model", else: "user"
         %{role: vertex_role, parts: [%{text: content}]}
-        
+
       message when is_binary(message) ->
         %{role: "user", parts: [%{text: message}]}
     end)

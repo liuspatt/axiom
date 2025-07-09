@@ -72,7 +72,7 @@ defmodule AxiomAi do
       {:ok, %{response: "Hello! How can I help you today?"}}
   """
   @spec chat(client(), String.t(), list(), String.t()) :: response()
-  def chat(%Client{} = client, system_prompt, history, prompt) 
+  def chat(%Client{} = client, system_prompt, history, prompt)
       when is_binary(system_prompt) and is_list(history) and is_binary(prompt) do
     Client.chat(client, system_prompt, history, prompt)
   end
@@ -94,5 +94,56 @@ defmodule AxiomAi do
   @spec complete(client(), String.t(), map()) :: response()
   def complete(%Client{} = client, prompt, options \\ %{}) when is_binary(prompt) do
     Client.complete(client, prompt, options)
+  end
+
+  @doc """
+  Streams a chat message to the AI provider.
+
+  ## Parameters
+    - client: The client instance
+    - message: The message to send
+
+  ## Examples
+
+      iex> client = AxiomAi.new(:vertex_ai, %{project_id: "my-project"})
+      iex> {:ok, stream} = AxiomAi.stream(client, "Tell me a story")
+
+      # Process the stream
+      stream |> Enum.each(fn
+        {:chunk, chunk} -> IO.write(chunk)
+        {:status, code} -> IO.puts("Status: " <> inspect(code))
+        {:error, reason} -> IO.puts("Error: " <> inspect(reason))
+      end)
+  """
+  @spec stream(client(), message()) :: {:ok, Enumerable.t()} | {:error, any()}
+  def stream(%Client{} = client, message) when is_binary(message) do
+    Client.stream(client, message)
+  end
+
+  @doc """
+  Streams a chat message with system prompt, history, and user prompt.
+
+  ## Parameters
+    - client: The client instance
+    - system_prompt: The system prompt to set context
+    - history: List of previous messages in the conversation
+    - prompt: The current user message
+
+  ## Examples
+
+      iex> client = AxiomAi.new(:vertex_ai, %{project_id: "my-project"})
+      iex> {:ok, stream} = AxiomAi.stream(client, "You are a helpful assistant", [], "Hello!")
+
+      # Process the stream
+      stream |> Enum.each(fn
+        {:chunk, chunk} -> IO.write(chunk)
+        {:status, code} -> IO.puts("Status: " <> inspect(code))
+        {:error, reason} -> IO.puts("Error: " <> inspect(reason))
+      end)
+  """
+  @spec stream(client(), String.t(), list(), String.t()) :: {:ok, Enumerable.t()} | {:error, any()}
+  def stream(%Client{} = client, system_prompt, history, prompt)
+      when is_binary(system_prompt) and is_list(history) and is_binary(prompt) do
+    Client.stream(client, system_prompt, history, prompt)
   end
 end

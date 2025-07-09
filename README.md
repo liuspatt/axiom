@@ -102,12 +102,44 @@ AWS_SECRET_ACCESS_KEY=your-aws-secret
 ```elixir
 client = AxiomAi.new(:vertex_ai, %{
   project_id: "your-project",
-  model: "gemini-1.5-pro",      # optional
-  region: "us-central1",        # optional
-  temperature: 0.7,             # optional
-  max_tokens: 1000             # optional
+  model: "gemini-1.5-pro",      # optional, default: "gemini-1.5-pro"
+  region: "us-central1",        # optional, default: "us-central1"
+  temperature: 0.7,             # optional, default: 0.7
+  max_tokens: 1000,             # optional, default: 65536 for chat, 1024 for completion
+  top_k: 40,                    # optional, default: 40
+  top_p: 0.95                   # optional, default: 0.95
 })
 ```
+
+## Streaming Support
+
+AxiomAI supports streaming responses for real-time text generation. Currently implemented for Vertex AI:
+
+```elixir
+# Simple streaming
+client = AxiomAi.new(:vertex_ai, %{project_id: "your-project"})
+{:ok, stream} = AxiomAi.stream(client, "Tell me a story")
+
+# Process the stream
+stream
+|> Enum.each(fn
+  {:chunk, chunk} -> IO.write(chunk)
+  {:status, code} -> IO.puts("Status: #{code}")
+  {:headers, headers} -> IO.inspect(headers)
+  {:error, reason} -> IO.puts("Error: #{inspect(reason)}")
+end)
+
+# Streaming with conversation history
+{:ok, stream} = AxiomAi.stream(client, "You are a helpful assistant", [], "Hello!")
+```
+
+**Streaming Status:**
+- ✅ **Vertex AI**: Full streaming support
+- ❌ **OpenAI**: Not implemented yet
+- ❌ **Anthropic**: Not implemented yet
+- ❌ **DeepSeek**: Not implemented yet
+- ❌ **Bedrock**: Not implemented yet
+- ❌ **Local**: Not implemented yet
 
 ## Credentials Configuration
 
