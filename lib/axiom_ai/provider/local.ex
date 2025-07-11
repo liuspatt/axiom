@@ -99,13 +99,22 @@ defmodule AxiomAi.Provider.Local do
 
   # Execute Python model directly
   defp execute_python_model(config, message, mode \\ :chat) do
-    script_content = Map.get(config, :python_script, "")
-    model_path = Map.get(config, :model_path, "")
+    cond do
+      Map.has_key?(config, :python_code) ->
+        execute_pythonx_model(config, message, mode)
 
-    if script_content == "" or model_path == "" do
-      {:error, :missing_python_config}
-    else
-      execute_python_script(script_content, model_path, message, config, mode)
+      Map.has_key?(config, :python_script) ->
+        script_content = Map.get(config, :python_script, "")
+        model_path = Map.get(config, :model_path, "")
+
+        if script_content == "" or model_path == "" do
+          {:error, :missing_python_config}
+        else
+          execute_python_script(script_content, model_path, message, config, mode)
+        end
+
+      true ->
+        {:error, :missing_python_config}
     end
   end
 
