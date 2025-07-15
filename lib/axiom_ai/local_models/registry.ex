@@ -75,7 +75,7 @@ defmodule AxiomAi.LocalModels.Registry do
     # Cache templates to avoid redundant calls
     text_template = Templates.create_from_template(:pythonx_text)
     speech_template = Templates.create_from_template(:pythonx_speech)
-    
+
     %{
       # Text Generation Models
       "qwen2.5-0.5b" => %{
@@ -211,7 +211,7 @@ defmodule AxiomAi.LocalModels.Registry do
   defp ocr_dependencies do
     """
     [project]
-    name = "ocr_inference"
+    name = "axiom_ocr"
     version = "0.1.0"
     requires-python = "==3.10.*"
     dependencies = [

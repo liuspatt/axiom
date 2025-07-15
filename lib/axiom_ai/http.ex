@@ -62,7 +62,11 @@ defmodule AxiomAi.Http do
 
     final_headers = default_headers ++ headers
 
-    case HTTPoison.post(url, json_payload, final_headers, stream_to: self(), timeout: 30_000, recv_timeout: 30_000) do
+    case HTTPoison.post(url, json_payload, final_headers,
+           stream_to: self(),
+           timeout: 30_000,
+           recv_timeout: 30_000
+         ) do
       {:ok, %HTTPoison.AsyncResponse{id: id}} ->
         {:ok, build_stream(id)}
 

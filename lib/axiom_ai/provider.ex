@@ -4,11 +4,21 @@ defmodule AxiomAi.Provider do
   """
 
   @callback chat(config :: map(), message :: String.t()) :: {:ok, map()} | {:error, any()}
-  @callback chat(config :: map(), system_prompt :: String.t(), history :: list(), prompt :: String.t()) :: {:ok, map()} | {:error, any()}
+  @callback chat(
+              config :: map(),
+              system_prompt :: String.t(),
+              history :: list(),
+              prompt :: String.t()
+            ) :: {:ok, map()} | {:error, any()}
   @callback complete(config :: map(), prompt :: String.t(), options :: map()) ::
               {:ok, map()} | {:error, any()}
   @callback stream(config :: map(), message :: String.t()) :: {:ok, any()} | {:error, any()}
-  @callback stream(config :: map(), system_prompt :: String.t(), history :: list(), prompt :: String.t()) :: {:ok, any()} | {:error, any()}
+  @callback stream(
+              config :: map(),
+              system_prompt :: String.t(),
+              history :: list(),
+              prompt :: String.t()
+            ) :: {:ok, any()} | {:error, any()}
 
   @doc """
   Dispatches chat requests to the appropriate provider.

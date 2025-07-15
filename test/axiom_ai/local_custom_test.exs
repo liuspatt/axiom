@@ -25,12 +25,12 @@ defmodule AxiomAi.LocalCustomTest do
         python_code: """
         import torch
         from transformers import AutoTokenizer, AutoModelForCausalLM
-        
+
         # Global variables for model caching
         _model = None
         _tokenizer = None
         _current_model_path = None
-        
+
         def load_model(model_path):
             global _model, _tokenizer, _current_model_path
             
@@ -44,7 +44,7 @@ defmodule AxiomAi.LocalCustomTest do
                 _current_model_path = model_path
             
             return _tokenizer, _model
-        
+
         def generate_response(model_path, prompt, max_tokens=1024, temperature=0.7):
             tokenizer, model = load_model(model_path)
             
@@ -71,15 +71,15 @@ defmodule AxiomAi.LocalCustomTest do
       }
 
       # Mock Pythonx to avoid actual Python execution in tests
-      with_mock(Pythonx, [
+      with_mock(Pythonx,
         uv_init: fn _deps -> :ok end,
         eval: fn _code, _globals -> {"Mock AI response about the future of technology.", %{}} end,
         decode: fn result -> result end
-      ]) do
+      ) do
         result = Local.chat(config, "Write a short story about AI")
-        
+
         assert {:ok, %{response: "Mock AI response about the future of technology."}} = result
-        
+
         # Verify Pythonx was called with expected parameters
         assert called(Pythonx.uv_init(:_))
         assert called(Pythonx.eval(:_, :_))
@@ -95,11 +95,11 @@ defmodule AxiomAi.LocalCustomTest do
       }
 
       # Test indirectly by calling chat and ensuring it doesn't fail with missing config
-      with_mock(Pythonx, [
+      with_mock(Pythonx,
         uv_init: fn _deps -> :ok end,
         eval: fn _code, _globals -> {"Mock response", %{}} end,
         decode: fn result -> result end
-      ]) do
+      ) do
         result = Local.chat(config, "test")
         assert {:ok, %{response: "Mock response"}} = result
       end
@@ -112,11 +112,11 @@ defmodule AxiomAi.LocalCustomTest do
         model_path: "test/model"
       }
 
-      with_mock(Pythonx, [
+      with_mock(Pythonx,
         uv_init: fn _deps -> :ok end,
         eval: fn _code, _globals -> {"result", %{}} end,
         decode: fn result -> result end
-      ]) do
+      ) do
         result = Local.chat(config_missing_deps, "test")
         assert {:error, :missing_pythonx_config} = result
       end
@@ -127,11 +127,11 @@ defmodule AxiomAi.LocalCustomTest do
         model_path: "test/model"
       }
 
-      with_mock(Pythonx, [
+      with_mock(Pythonx,
         uv_init: fn _deps -> :ok end,
         eval: fn _code, _globals -> {"result", %{}} end,
         decode: fn result -> result end
-      ]) do
+      ) do
         result = Local.chat(config_missing_code, "test")
         assert {:error, :missing_execution_config} = result
       end
@@ -146,11 +146,11 @@ defmodule AxiomAi.LocalCustomTest do
 
       # Since this config has python_code, it will be detected as :python execution type
       # But when execute_pythonx_model is called, it will fail due to missing model_path
-      with_mock(Pythonx, [
+      with_mock(Pythonx,
         uv_init: fn _deps -> :ok end,
         eval: fn _code, _globals -> {"result", %{}} end,
         decode: fn result -> result end
-      ]) do
+      ) do
         result = Local.chat(config_missing_model, "test")
         assert {:error, :missing_pythonx_config} = result
       end
@@ -165,15 +165,15 @@ defmodule AxiomAi.LocalCustomTest do
 
       # Test that Pythonx errors are properly caught and returned as error tuples
       # The exact behavior will depend on how the actual implementation handles exceptions
-      with_mock(Pythonx, [
+      with_mock(Pythonx,
         uv_init: fn _deps -> :ok end,
         eval: fn _code, _globals -> {"result", %{}} end,
         decode: fn result -> result end
-      ]) do
+      ) do
         # Test normal execution first
         result = Local.chat(config, "test")
         assert {:ok, %{response: "result"}} = result
-        
+
         # More complex error testing would require integration tests
         # since exception handling in mocks can be tricky
       end
@@ -186,7 +186,7 @@ defmodule AxiomAi.LocalCustomTest do
         python_script: """
         import json
         import sys
-        
+
         def main():
             input_data = json.loads(sys.argv[1])
             model_path = input_data['model_path']
@@ -195,7 +195,7 @@ defmodule AxiomAi.LocalCustomTest do
             # Simple mock response
             response = f"Script response for: {prompt}"
             print(json.dumps({"response": response}))
-        
+
         if __name__ == "__main__":
             main()
         """,
@@ -207,14 +207,23 @@ defmodule AxiomAi.LocalCustomTest do
       # This test would require complex mocking of file system operations
       # For now, just verify the configuration is valid
       result = Local.chat(config, "Hello world")
-      
+
       # Should either succeed or fail with a specific error (not missing config)
       case result do
-        {:ok, _} -> assert true
-        {:error, {:python_script_failed, _, _}} -> assert true
-        {:error, {:script_execution_error, _}} -> assert true
-        {:error, :missing_python_config} -> flunk("Should not have missing config with valid python_script and model_path")
-        other -> flunk("Unexpected result: #{inspect(other)}")
+        {:ok, _} ->
+          assert true
+
+        {:error, {:python_script_failed, _, _}} ->
+          assert true
+
+        {:error, {:script_execution_error, _}} ->
+          assert true
+
+        {:error, :missing_python_config} ->
+          flunk("Should not have missing config with valid python_script and model_path")
+
+        other ->
+          flunk("Unexpected result: #{inspect(other)}")
       end
     end
 
@@ -228,7 +237,7 @@ defmodule AxiomAi.LocalCustomTest do
       # This test would require complex mocking of file operations
       # In a real scenario, we'd test this with integration tests
       result = Local.chat(config, "test")
-      
+
       # Should either fail with script execution error or missing config
       assert match?({:error, _}, result)
     end
@@ -254,26 +263,29 @@ defmodule AxiomAi.LocalCustomTest do
 
       mock_response = %{
         status_code: 200,
-        body: Jason.encode!(%{
-          "choices" => [
-            %{"message" => %{"content" => "Hello from API"}}
-          ]
-        })
+        body:
+          Jason.encode!(%{
+            "choices" => [
+              %{"message" => %{"content" => "Hello from API"}}
+            ]
+          })
       }
 
-      with_mock(AxiomAi.Http, [
+      with_mock(AxiomAi.Http,
         post: fn _url, _payload, _headers -> {:ok, mock_response} end
-      ]) do
+      ) do
         result = Local.chat(config, "Hello API")
-        
+
         assert {:ok, %{response: "Hello from API"}} = result
-        
+
         # Verify HTTP request was made with correct URL and headers
-        assert called(AxiomAi.Http.post(
-          "http://localhost:8000/v1/chat/completions",
-          :_,
-          :_
-        ))
+        assert called(
+                 AxiomAi.Http.post(
+                   "http://localhost:8000/v1/chat/completions",
+                   :_,
+                   :_
+                 )
+               )
       end
     end
 
@@ -296,24 +308,27 @@ defmodule AxiomAi.LocalCustomTest do
 
       mock_response = %{
         status_code: 200,
-        body: Jason.encode!(%{
-          "message" => %{"content" => "Hello from Ollama"}
-        })
+        body:
+          Jason.encode!(%{
+            "message" => %{"content" => "Hello from Ollama"}
+          })
       }
 
-      with_mock(AxiomAi.Http, [
+      with_mock(AxiomAi.Http,
         post: fn _url, _payload, _headers -> {:ok, mock_response} end
-      ]) do
+      ) do
         result = Local.chat(config, "Hello Ollama")
-        
+
         assert {:ok, %{response: "Hello from Ollama"}} = result
-        
+
         # Verify HTTP request was made with correct URL
-        assert called(AxiomAi.Http.post(
-          "http://localhost:11434/api/chat",
-          :_,
-          :_
-        ))
+        assert called(
+                 AxiomAi.Http.post(
+                   "http://localhost:11434/api/chat",
+                   :_,
+                   :_
+                 )
+               )
       end
     end
 
@@ -325,9 +340,9 @@ defmodule AxiomAi.LocalCustomTest do
       }
 
       # Test HTTP error
-      with_mock(AxiomAi.Http, [
+      with_mock(AxiomAi.Http,
         post: fn _url, _payload, _headers -> {:error, :timeout} end
-      ]) do
+      ) do
         result = Local.chat(config, "test")
         assert {:error, :timeout} = result
       end
@@ -338,9 +353,9 @@ defmodule AxiomAi.LocalCustomTest do
         body: "Internal Server Error"
       }
 
-      with_mock(AxiomAi.Http, [
+      with_mock(AxiomAi.Http,
         post: fn _url, _payload, _headers -> {:ok, error_response} end
-      ]) do
+      ) do
         result = Local.chat(config, "test")
         assert {:error, %{status_code: 500, message: "Internal Server Error"}} = result
       end
@@ -349,10 +364,11 @@ defmodule AxiomAi.LocalCustomTest do
 
   describe "template system" do
     test "create from pythonx_text template" do
-      config = Templates.create_from_template(:pythonx_text, %{
-        model_path: "custom/model",
-        temperature: 0.9
-      })
+      config =
+        Templates.create_from_template(:pythonx_text, %{
+          model_path: "custom/model",
+          temperature: 0.9
+        })
 
       assert config.type == :pythonx
       assert config.model_path == "custom/model"
@@ -364,10 +380,11 @@ defmodule AxiomAi.LocalCustomTest do
     end
 
     test "create from http_openai template" do
-      config = Templates.create_from_template(:http_openai, %{
-        endpoint: "http://custom:8080",
-        model: "custom-model"
-      })
+      config =
+        Templates.create_from_template(:http_openai, %{
+          endpoint: "http://custom:8080",
+          model: "custom-model"
+        })
 
       assert config.type == :http
       assert config.endpoint == "http://custom:8080"
@@ -376,9 +393,10 @@ defmodule AxiomAi.LocalCustomTest do
     end
 
     test "create from http_ollama template" do
-      config = Templates.create_from_template(:http_ollama, %{
-        model: "llama2:13b"
-      })
+      config =
+        Templates.create_from_template(:http_ollama, %{
+          model: "llama2:13b"
+        })
 
       assert config.type == :http
       assert config.endpoint == "http://localhost:11434"
@@ -388,20 +406,20 @@ defmodule AxiomAi.LocalCustomTest do
 
     test "list available templates" do
       templates = Templates.list_templates()
-      
+
       assert :pythonx_text in templates
       assert :pythonx_vision in templates
       assert :pythonx_speech in templates
       assert :http_openai in templates
       assert :http_ollama in templates
       assert :custom in templates
-      
+
       assert length(templates) == 6
     end
 
     test "invalid template defaults to custom" do
       config = Templates.create_from_template(:invalid_template)
-      
+
       assert config.name == "Custom Model"
       assert config.type == :http
       assert config.api_format == :openai
@@ -412,19 +430,19 @@ defmodule AxiomAi.LocalCustomTest do
     test "completion with pythonx" do
       config = %{
         python_deps: "deps",
-        python_code: "code", 
+        python_code: "code",
         model_path: "model"
       }
 
       options = %{temperature: 0.5, max_tokens: 100}
 
-      with_mock(Pythonx, [
+      with_mock(Pythonx,
         uv_init: fn _deps -> :ok end,
         eval: fn _code, _globals -> {"Completion response", %{}} end,
         decode: fn result -> result end
-      ]) do
+      ) do
         result = Local.complete(config, "Complete this:", options)
-        
+
         assert {:ok, %{completion: "Completion response"}} = result
       end
     end
@@ -447,23 +465,26 @@ defmodule AxiomAi.LocalCustomTest do
 
       mock_response = %{
         status_code: 200,
-        body: Jason.encode!(%{
-          "choices" => [%{"text" => " with AI assistance"}]
-        })
+        body:
+          Jason.encode!(%{
+            "choices" => [%{"text" => " with AI assistance"}]
+          })
       }
 
-      with_mock(AxiomAi.Http, [
+      with_mock(AxiomAi.Http,
         post: fn _url, _payload, _headers -> {:ok, mock_response} end
-      ]) do
+      ) do
         result = Local.complete(config, "Complete this text", options)
-        
+
         assert {:ok, %{completion: " with AI assistance"}} = result
-        
-        assert called(AxiomAi.Http.post(
-          "http://localhost:8000/v1/completions",
-          expected_payload,
-          [{"Content-Type", "application/json"}]
-        ))
+
+        assert called(
+                 AxiomAi.Http.post(
+                   "http://localhost:8000/v1/completions",
+                   expected_payload,
+                   [{"Content-Type", "application/json"}]
+                 )
+               )
       end
     end
   end
@@ -513,13 +534,13 @@ defmodule AxiomAi.LocalCustomTest do
 
       client = AxiomAi.new(:local, config)
 
-      with_mock(Pythonx, [
+      with_mock(Pythonx,
         uv_init: fn _deps -> :ok end,
         eval: fn _code, _globals -> {"Integration test response", %{}} end,
         decode: fn result -> result end
-      ]) do
+      ) do
         result = AxiomAi.chat(client, "Test integration")
-        
+
         assert {:ok, %{response: "Integration test response"}} = result
       end
     end
@@ -535,16 +556,17 @@ defmodule AxiomAi.LocalCustomTest do
 
       mock_response = %{
         status_code: 200,
-        body: Jason.encode!(%{
-          "choices" => [%{"message" => %{"content" => "HTTP integration response"}}]
-        })
+        body:
+          Jason.encode!(%{
+            "choices" => [%{"message" => %{"content" => "HTTP integration response"}}]
+          })
       }
 
-      with_mock(AxiomAi.Http, [
+      with_mock(AxiomAi.Http,
         post: fn _url, _payload, _headers -> {:ok, mock_response} end
-      ]) do
+      ) do
         result = AxiomAi.chat(client, "Test HTTP integration")
-        
+
         assert {:ok, %{response: "HTTP integration response"}} = result
       end
     end

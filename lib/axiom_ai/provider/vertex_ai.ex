@@ -237,18 +237,19 @@ defmodule AxiomAi.Provider.VertexAi do
       parts: [%{text: "I understand. I'll follow your instructions."}]
     }
 
-    history_messages = Enum.map(history, fn
-      %{role: role, content: content} ->
-        vertex_role = if role == "assistant", do: "model", else: "user"
-        %{role: vertex_role, parts: [%{text: content}]}
+    history_messages =
+      Enum.map(history, fn
+        %{role: role, content: content} ->
+          vertex_role = if role == "assistant", do: "model", else: "user"
+          %{role: vertex_role, parts: [%{text: content}]}
 
-      %{"role" => role, "content" => content} ->
-        vertex_role = if role == "assistant", do: "model", else: "user"
-        %{role: vertex_role, parts: [%{text: content}]}
+        %{"role" => role, "content" => content} ->
+          vertex_role = if role == "assistant", do: "model", else: "user"
+          %{role: vertex_role, parts: [%{text: content}]}
 
-      message when is_binary(message) ->
-        %{role: "user", parts: [%{text: message}]}
-    end)
+        message when is_binary(message) ->
+          %{role: "user", parts: [%{text: message}]}
+      end)
 
     user_message = %{
       role: "user",

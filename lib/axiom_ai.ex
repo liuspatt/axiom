@@ -141,7 +141,8 @@ defmodule AxiomAi do
         {:error, reason} -> IO.puts("Error: " <> inspect(reason))
       end)
   """
-  @spec stream(client(), String.t(), list(), String.t()) :: {:ok, Enumerable.t()} | {:error, any()}
+  @spec stream(client(), String.t(), list(), String.t()) ::
+          {:ok, Enumerable.t()} | {:error, any()}
   def stream(%Client{} = client, system_prompt, history, prompt)
       when is_binary(system_prompt) and is_list(history) and is_binary(prompt) do
     Client.stream(client, system_prompt, history, prompt)

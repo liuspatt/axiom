@@ -115,8 +115,10 @@ defmodule AxiomAi.Auth do
   defp get_application_default_credentials do
     # Try Cloud Run/GCE metadata service first (for production environments)
     case get_metadata_service_token() do
-      {:ok, token} -> {:ok, token}
-      {:error, _} -> 
+      {:ok, token} ->
+        {:ok, token}
+
+      {:error, _} ->
         # Fallback to gcloud CLI (for local development)
         get_gcloud_token()
     end
@@ -124,9 +126,11 @@ defmodule AxiomAi.Auth do
 
   defp get_metadata_service_token do
     # Google Cloud metadata service endpoint
-    url = "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token"
+    url =
+      "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token"
+
     headers = [{"Metadata-Flavor", "Google"}]
-    
+
     case HTTPoison.get(url, headers, timeout: 5000, recv_timeout: 5000) do
       {:ok, %{status_code: 200, body: body}} ->
         case Jason.decode(body) do

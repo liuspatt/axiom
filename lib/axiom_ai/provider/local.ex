@@ -12,8 +12,8 @@ defmodule AxiomAi.Provider.Local do
   alias AxiomAi.LocalModels
 
   # Track Python initialization state to avoid multiple init calls
-  @python_init_key :axiom_ai_python_initialized
-  @python_globals_key :axiom_ai_python_globals
+  @python_init_key_prefix :axiom_ai_python_initialized
+  @python_globals_key_prefix :axiom_ai_python_globals
 
   @impl true
   def chat(config, message) do
@@ -123,11 +123,12 @@ defmodule AxiomAi.Provider.Local do
     python_deps = Map.get(config, :python_deps, "")
     python_code = Map.get(config, :python_code, "")
     model_path = Map.get(config, :model_path, "")
+    category = Map.get(config, :category, :text_generation)
 
     if python_deps == "" or python_code == "" or model_path == "" do
       {:error, :missing_pythonx_config}
     else
-      execute_with_pythonx(python_deps, python_code, model_path, message, config, mode)
+      execute_with_pythonx(python_deps, python_code, model_path, message, config, mode, category)
     end
   end
 
@@ -185,8 +186,6 @@ defmodule AxiomAi.Provider.Local do
 
   # Execute Python script
   defp execute_python_script(script_content, model_path, message, config, mode) do
-    script_path = nil
-
     try do
       # Create temporary script file
       script_path = create_temp_script(script_content)
@@ -222,35 +221,35 @@ defmodule AxiomAi.Provider.Local do
             {:error, {:python_script_failed, exit_code, error_output}}
         end
 
+      # Clean up temporary script file
+      if File.exists?(script_path) do
+        File.rm(script_path)
+      end
+
       result
     rescue
       e ->
         {:error, {:script_execution_error, Exception.message(e)}}
-    after
-      # Clean up temporary script file
-      if script_path && File.exists?(script_path) do
-        File.rm(script_path)
-      end
     end
   end
 
   # Execute with Pythonx
   # WARNING: Due to Python's GIL, this will block other Python executions
   # For concurrent scenarios, consider using System.cmd/3 instead
-  defp execute_with_pythonx(python_deps, python_code, model_path, message, config, mode) do
+  defp execute_with_pythonx(python_deps, python_code, model_path, message, config, mode, category) do
     try do
-      # Initialize Python environment with dependencies only once per process
-      ensure_python_initialized(python_deps)
+      # Initialize Python environment with dependencies only once per category
+      ensure_python_initialized(python_deps, category)
 
       # Prepare variables for Python execution
       max_tokens = Map.get(config, :max_tokens, 1024)
       temperature = Map.get(config, :temperature, 0.7)
 
-      # Get or create process-specific globals to avoid concurrent access issues
-      process_globals = get_process_globals()
+      # Get or create category-specific globals to avoid conflicts between model types
+      process_globals = get_process_globals(category)
 
       # Execute the Python code with the inference function
-      # Using process-local globals to maintain model cache and avoid concurrency issues
+      # Using category-specific globals to maintain separate model caches
       {result, updated_globals} =
         Pythonx.eval(
           """
@@ -263,8 +262,8 @@ defmodule AxiomAi.Provider.Local do
           process_globals
         )
 
-      # Store updated globals back to process dictionary
-      put_process_globals(updated_globals)
+      # Store updated globals back to process dictionary for this category
+      put_process_globals(updated_globals, category)
 
       # Decode the result
       response = Pythonx.decode(result)
@@ -279,34 +278,38 @@ defmodule AxiomAi.Provider.Local do
     end
   end
 
-  # Ensure Python is initialized only once per process
-  defp ensure_python_initialized(python_deps) do
-    case Process.get(@python_init_key) do
+  # Ensure Python is initialized only once per category per process
+  defp ensure_python_initialized(python_deps, category) do
+    init_key = String.to_atom("#{@python_init_key_prefix}_#{category}")
+
+    case Process.get(init_key) do
       nil ->
         try do
           Pythonx.uv_init(python_deps)
-          Process.put(@python_init_key, true)
+          Process.put(init_key, true)
         rescue
           # If Python is already initialized at system level, catch any error and mark as initialized
           _error ->
-            Process.put(@python_init_key, true)
+            Process.put(init_key, true)
             :ok
         end
 
       true ->
-        # Already initialized, skip
+        # Already initialized for this category, skip
         :ok
     end
   end
 
-  # Get process-local Python globals to avoid concurrency issues
-  defp get_process_globals do
-    Process.get(@python_globals_key, %{})
+  # Get category-specific Python globals to avoid conflicts between model types
+  defp get_process_globals(category) do
+    globals_key = String.to_atom("#{@python_globals_key_prefix}_#{category}")
+    Process.get(globals_key, %{})
   end
 
-  # Store updated Python globals in process dictionary
-  defp put_process_globals(globals) do
-    Process.put(@python_globals_key, globals)
+  # Store updated Python globals in process dictionary for specific category
+  defp put_process_globals(globals, category) do
+    globals_key = String.to_atom("#{@python_globals_key_prefix}_#{category}")
+    Process.put(globals_key, globals)
   end
 
   defp create_temp_script(script_content) do
