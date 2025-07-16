@@ -65,7 +65,12 @@ defmodule PythonInterface.Utils do
       {option_name, proxy} ->
         %{host: host, port: port} = URI.parse(proxy)
         Logger.debug("Using #{scheme} proxy: #{proxy}")
-        :httpc.set_options([{option_name, {{String.to_charlist(host), port}, []}}], :python_interface)
+
+        :httpc.set_options(
+          [{option_name, {{String.to_charlist(host), port}, []}}],
+          :python_interface
+        )
+
         proxy_auth_options(proxy)
 
       nil ->

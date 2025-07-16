@@ -1,7 +1,7 @@
 defmodule PythonInterface do
   @moduledoc """
   Python interpreter embedded in Elixir.
-  
+
   This module provides functionality to run Python code from within Elixir.
   """
 
@@ -102,7 +102,12 @@ defmodule PythonInterface do
       raise ArgumentError, "the given python executable does not exist: #{python_executable_path}"
     end
 
-    PythonInterface.NIF.init(python_dl_path, python_home_path, python_executable_path, opts[:sys_paths])
+    PythonInterface.NIF.init(
+      python_dl_path,
+      python_home_path,
+      python_executable_path,
+      opts[:sys_paths]
+    )
   end
 
   @doc ~S'''
@@ -314,7 +319,9 @@ defmodule PythonInterface do
       end
 
     quote do
-      {result, globals} = PythonInterface.eval(unquote(code), unquote({:%{}, [], globals_entries}))
+      {result, globals} =
+        PythonInterface.eval(unquote(code), unquote({:%{}, [], globals_entries}))
+
       unquote({:__block__, [], assignments})
       result
     end

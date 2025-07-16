@@ -12,7 +12,6 @@ defmodule AxiomAi.Provider.Local do
   alias AxiomAi.LocalModels
   alias AxiomAi.PythonInterface
 
-
   @impl true
   def chat(config, message) do
     case determine_execution_type(config) do
@@ -126,7 +125,15 @@ defmodule AxiomAi.Provider.Local do
     if python_deps == "" or python_code == "" or model_path == "" do
       {:error, :missing_python_interface_config}
     else
-      execute_with_python_interface(python_deps, python_code, model_path, message, config, mode, category)
+      execute_with_python_interface(
+        python_deps,
+        python_code,
+        model_path,
+        message,
+        config,
+        mode,
+        category
+      )
     end
   end
 
@@ -234,7 +241,15 @@ defmodule AxiomAi.Provider.Local do
   # Execute with
   # WARNING: Due to Python's GIL, this will block other Python executions
   # For concurrent scenarios, consider using System.cmd/3 instead
-  defp execute_with_python_interface(python_deps, python_code, model_path, message, config, mode, category) do
+  defp execute_with_python_interface(
+         python_deps,
+         python_code,
+         model_path,
+         message,
+         config,
+         mode,
+         category
+       ) do
     # Initialize Python environment with dependencies
     case PythonInterface.init_environment(python_deps, category) do
       :ok ->
@@ -254,7 +269,6 @@ defmodule AxiomAi.Provider.Local do
         {:error, {:python_interface_execution_error, reason}}
     end
   end
-
 
   defp create_temp_script(script_content) do
     temp_dir = System.tmp_dir!()
