@@ -27,7 +27,7 @@ LocalModels.list_models_by_category(:http_endpoints)
 IO.puts("\n=== Creating Custom Models ===")
 
 # Custom text generation model
-custom_text_model = LocalModels.create_custom_config(:pythonx_text, %{
+custom_text_model = LocalModels.create_custom_config(:python_interface_text, %{
   name: "Custom Qwen Model",
   model_path: "Qwen/Custom-Model-Path",
   description: "My custom text generation model"

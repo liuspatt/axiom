@@ -1,7 +1,7 @@
 defmodule AxiomAi.MixProject do
   use Mix.Project
 
-  @version "0.1.4"
+  @version "0.1.5"
   @source_url "https://github.com/liuspatt/axiom-ai"
 
   def project do
@@ -11,6 +11,8 @@ defmodule AxiomAi.MixProject do
       elixir: "~> 1.14",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
+      compilers: [:elixir_make] ++ Mix.compilers(),
+      make_env: fn -> %{"FINE_INCLUDE_DIR" => Fine.include_dir()} end,
       description: description(),
       package: package(),
       docs: docs(),
@@ -21,7 +23,8 @@ defmodule AxiomAi.MixProject do
 
   def application do
     [
-      extra_applications: [:logger, :httpoison]
+      extra_applications: [:logger, :httpoison, :inets, :ssl, :public_key],
+      mod: {AxiomAi.Application, []}
     ]
   end
 
@@ -33,7 +36,9 @@ defmodule AxiomAi.MixProject do
       {:ex_aws, "~> 2.5"},
       {:hackney, "~> 1.9"},
       {:sweet_xml, "~> 0.7"},
-      {:pythonx, "~> 0.4.0"},
+      {:fine, "~> 0.1.0", runtime: false},
+      {:elixir_make, "~> 0.9", runtime: false},
+      {:cc_precompiler, "~> 0.1", runtime: false},
       {:ex_doc, "~> 0.31", only: :dev, runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev], runtime: false},

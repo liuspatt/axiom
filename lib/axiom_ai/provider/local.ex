@@ -10,10 +10,8 @@ defmodule AxiomAi.Provider.Local do
 
   alias AxiomAi.Http
   alias AxiomAi.LocalModels
+  alias AxiomAi.PythonInterface
 
-  # Track Python initialization state to avoid multiple init calls
-  @python_init_key_prefix :axiom_ai_python_initialized
-  @python_globals_key_prefix :axiom_ai_python_globals
 
   @impl true
   def chat(config, message) do
@@ -85,8 +83,8 @@ defmodule AxiomAi.Provider.Local do
           :python ->
             execute_python_model(merged_config, message, mode)
 
-          :pythonx ->
-            execute_pythonx_model(merged_config, message, mode)
+          :python_interface ->
+            execute_python_interface_model(merged_config, message, mode)
 
           :http ->
             execute_http_request(merged_config, message, mode)
@@ -101,7 +99,7 @@ defmodule AxiomAi.Provider.Local do
   defp execute_python_model(config, message, mode \\ :chat) do
     cond do
       Map.has_key?(config, :python_code) ->
-        execute_pythonx_model(config, message, mode)
+        execute_python_interface_model(config, message, mode)
 
       Map.has_key?(config, :python_script) ->
         script_content = Map.get(config, :python_script, "")
@@ -118,17 +116,17 @@ defmodule AxiomAi.Provider.Local do
     end
   end
 
-  # Execute Pythonx model directly
-  defp execute_pythonx_model(config, message, mode) do
+  # Execute Python model directly
+  defp execute_python_interface_model(config, message, mode) do
     python_deps = Map.get(config, :python_deps, "")
     python_code = Map.get(config, :python_code, "")
     model_path = Map.get(config, :model_path, "")
     category = Map.get(config, :category, :text_generation)
 
     if python_deps == "" or python_code == "" or model_path == "" do
-      {:error, :missing_pythonx_config}
+      {:error, :missing_python_interface_config}
     else
-      execute_with_pythonx(python_deps, python_code, model_path, message, config, mode, category)
+      execute_with_python_interface(python_deps, python_code, model_path, message, config, mode, category)
     end
   end
 
@@ -233,84 +231,30 @@ defmodule AxiomAi.Provider.Local do
     end
   end
 
-  # Execute with Pythonx
+  # Execute with
   # WARNING: Due to Python's GIL, this will block other Python executions
   # For concurrent scenarios, consider using System.cmd/3 instead
-  defp execute_with_pythonx(python_deps, python_code, model_path, message, config, mode, category) do
-    try do
-      # Initialize Python environment with dependencies only once per category
-      ensure_python_initialized(python_deps, category)
+  defp execute_with_python_interface(python_deps, python_code, model_path, message, config, mode, category) do
+    # Initialize Python environment with dependencies
+    case PythonInterface.init_environment(python_deps, category) do
+      :ok ->
+        # Execute inference using the python_infercafe interface
+        case PythonInterface.execute_inference(model_path, message, python_code, config, category) do
+          {:ok, response} ->
+            case mode do
+              :chat -> {:ok, %{response: response}}
+              :complete -> {:ok, %{completion: response}}
+            end
 
-      # Prepare variables for Python execution
-      max_tokens = Map.get(config, :max_tokens, 1024)
-      temperature = Map.get(config, :temperature, 0.7)
-
-      # Get or create category-specific globals to avoid conflicts between model types
-      process_globals = get_process_globals(category)
-
-      # Execute the Python code with the inference function
-      # Using category-specific globals to maintain separate model caches
-      {result, updated_globals} =
-        Pythonx.eval(
-          """
-          #{python_code}
-
-          # Call the inference function with escaped strings to prevent injection
-          response = generate_response("#{String.replace(model_path, "\"", "\\\"")}", "#{String.replace(message, "\"", "\\\"")}", #{max_tokens}, #{temperature})
-          response
-          """,
-          process_globals
-        )
-
-      # Store updated globals back to process dictionary for this category
-      put_process_globals(updated_globals, category)
-
-      # Decode the result
-      response = Pythonx.decode(result)
-
-      case mode do
-        :chat -> {:ok, %{response: response}}
-        :complete -> {:ok, %{completion: response}}
-      end
-    rescue
-      e ->
-        {:error, {:pythonx_execution_error, Exception.message(e)}}
-    end
-  end
-
-  # Ensure Python is initialized only once per category per process
-  defp ensure_python_initialized(python_deps, category) do
-    init_key = String.to_atom("#{@python_init_key_prefix}_#{category}")
-
-    case Process.get(init_key) do
-      nil ->
-        try do
-          Pythonx.uv_init(python_deps)
-          Process.put(init_key, true)
-        rescue
-          # If Python is already initialized at system level, catch any error and mark as initialized
-          _error ->
-            Process.put(init_key, true)
-            :ok
+          {:error, reason} ->
+            {:error, {:python_interface_execution_error, reason}}
         end
 
-      true ->
-        # Already initialized for this category, skip
-        :ok
+      {:error, reason} ->
+        {:error, {:python_interface_execution_error, reason}}
     end
   end
 
-  # Get category-specific Python globals to avoid conflicts between model types
-  defp get_process_globals(category) do
-    globals_key = String.to_atom("#{@python_globals_key_prefix}_#{category}")
-    Process.get(globals_key, %{})
-  end
-
-  # Store updated Python globals in process dictionary for specific category
-  defp put_process_globals(globals, category) do
-    globals_key = String.to_atom("#{@python_globals_key_prefix}_#{category}")
-    Process.put(globals_key, globals)
-  end
 
   defp create_temp_script(script_content) do
     temp_dir = System.tmp_dir!()

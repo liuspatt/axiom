@@ -127,7 +127,7 @@ defmodule AxiomAi.Config do
     has_predefined = Map.has_key?(config, :predefined_model)
     has_python = Map.has_key?(config, :python_script) and Map.has_key?(config, :model_path)
 
-    has_pythonx =
+    has_python_interface =
       Map.has_key?(config, :python_code) and Map.has_key?(config, :python_deps) and
         Map.has_key?(config, :model_path)
 
@@ -142,9 +142,9 @@ defmodule AxiomAi.Config do
         # Python script execution
         validate_python_config(config)
 
-      has_pythonx ->
-        # Pythonx execution
-        validate_pythonx_config(config)
+      has_python_interface ->
+        # Python execution
+        validate_python_interface_config(config)
 
       has_endpoint ->
         # HTTP endpoint (original behavior)
@@ -160,7 +160,7 @@ defmodule AxiomAi.Config do
     validate_required(config, [:python_script, :model_path])
   end
 
-  defp validate_pythonx_config(config) do
+  defp validate_python_interface_config(config) do
     validate_required(config, [:python_code, :python_deps, :model_path])
   end
 end

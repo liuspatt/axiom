@@ -68,12 +68,12 @@ defmodule AxiomAi.LocalModelTest do
               IO.puts("\n❌ UNEXPECTED: Missing Python configuration")
               flunk("The predefined model should have Python config")
 
-            {:missing_pythonx_config} ->
-              IO.puts("\n❌ UNEXPECTED: Missing Pythonx configuration")
-              flunk("The predefined model should have Pythonx config")
+            {:missing_python_interface_config} ->
+              IO.puts("\n❌ UNEXPECTED: Missing PythonInterface configuration")
+              flunk("The predefined model should have PythonInterface config")
 
-            {:pythonx_execution_error, message} ->
-              IO.puts("\n⚠️  EXPECTED: Pythonx execution error")
+            {:python_interface_execution_error, message} ->
+              IO.puts("\n⚠️  EXPECTED: PythonInterface execution error")
               IO.puts("Error: #{message}")
               :ok
 
@@ -108,10 +108,10 @@ defmodule AxiomAi.LocalModelTest do
       IO.puts("\nQwen models available: #{Enum.join(qwen_models, ", ")}")
     end
 
-    test "validates Qwen model Pythonx configuration" do
+    test "validates Qwen model PythonInterface configuration" do
       {:ok, qwen_config} = LocalModels.get_model_config("qwen2.5-0.5b")
 
-      assert qwen_config.type == :pythonx
+      assert qwen_config.type == :python_interface
       assert is_binary(qwen_config.python_code)
       assert is_binary(qwen_config.python_deps)
       assert String.length(qwen_config.python_code) > 100
@@ -126,7 +126,7 @@ defmodule AxiomAi.LocalModelTest do
       assert String.contains?(deps, "torch >=")
       assert String.contains?(deps, "transformers >=")
 
-      IO.puts("✅ Pythonx configuration validation passed")
+      IO.puts("✅ PythonInterface configuration validation passed")
       IO.puts("Python code length: #{String.length(code)} characters")
       IO.puts("Dependencies defined: #{String.contains?(deps, "torch")}")
     end

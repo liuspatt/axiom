@@ -18,12 +18,12 @@ defmodule AxiomAi.LocalModels.Templates do
   @spec list_templates() :: [atom()]
   def list_templates do
     [
-      :pythonx_text,
-      :pythonx_vision,
-      :pythonx_speech,
-      :pythonx_ocr,
-      :pythonx_embedding,
-      :pythonx_code,
+      :python_interface_text,
+      :python_interface_vision,
+      :python_interface_speech,
+      :python_interface_ocr,
+      :python_interface_embedding,
+      :python_interface_code,
       :http_openai,
       :http_ollama,
       :custom
@@ -31,9 +31,9 @@ defmodule AxiomAi.LocalModels.Templates do
   end
 
   # Private template definitions
-  defp get_template(:pythonx_text) do
+  defp get_template(:python_interface_text) do
     %{
-      type: :pythonx,
+      type: :python_interface,
       context_length: 32768,
       python_deps: default_text_dependencies(),
       python_code: default_text_inference_code(),
@@ -41,9 +41,9 @@ defmodule AxiomAi.LocalModels.Templates do
     }
   end
 
-  defp get_template(:pythonx_vision) do
+  defp get_template(:python_interface_vision) do
     %{
-      type: :pythonx,
+      type: :python_interface,
       context_length: 8192,
       python_deps: default_vision_dependencies(),
       python_code: default_vision_inference_code(),
@@ -51,9 +51,9 @@ defmodule AxiomAi.LocalModels.Templates do
     }
   end
 
-  defp get_template(:pythonx_speech) do
+  defp get_template(:python_interface_speech) do
     %{
-      type: :pythonx,
+      type: :python_interface,
       context_length: 30,
       python_deps: default_speech_dependencies(),
       python_code: default_speech_inference_code(),
@@ -61,9 +61,9 @@ defmodule AxiomAi.LocalModels.Templates do
     }
   end
 
-  defp get_template(:pythonx_ocr) do
+  defp get_template(:python_interface_ocr) do
     %{
-      type: :pythonx,
+      type: :python_interface,
       context_length: 8192,
       python_deps: default_ocr_dependencies(),
       python_code: default_ocr_inference_code(),
@@ -71,9 +71,9 @@ defmodule AxiomAi.LocalModels.Templates do
     }
   end
 
-  defp get_template(:pythonx_embedding) do
+  defp get_template(:python_interface_embedding) do
     %{
-      type: :pythonx,
+      type: :python_interface,
       context_length: 512,
       python_deps: default_embedding_dependencies(),
       python_code: default_embedding_inference_code(),
@@ -81,9 +81,9 @@ defmodule AxiomAi.LocalModels.Templates do
     }
   end
 
-  defp get_template(:pythonx_code) do
+  defp get_template(:python_interface_code) do
     %{
-      type: :pythonx,
+      type: :python_interface,
       context_length: 32768,
       python_deps: default_code_dependencies(),
       python_code: default_code_inference_code(),

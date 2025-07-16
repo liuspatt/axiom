@@ -108,7 +108,7 @@ defmodule AxiomAi.WhisperTest do
 
       assert config.name == "Whisper Large v3 Turbo"
       assert config.category == :speech
-      assert config.type == :pythonx
+      assert config.type == :python_interface
       assert config.model_path == "openai/whisper-large-v3-turbo"
       assert config.context_length == 30
       assert String.contains?(config.description, "speech-to-text")
@@ -118,7 +118,7 @@ defmodule AxiomAi.WhisperTest do
 
       assert config.name == "Whisper Large v3"
       assert config.category == :speech
-      assert config.type == :pythonx
+      assert config.type == :python_interface
       assert config.model_path == "openai/whisper-large-v3"
       assert config.context_length == 30
       assert String.contains?(config.description, "speech-to-text")

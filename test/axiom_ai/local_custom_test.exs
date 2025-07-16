@@ -9,7 +9,7 @@ defmodule AxiomAi.LocalCustomTest do
   @moduletag timeout: :infinity
 
   describe "custom python code execution" do
-    test "custom pythonx configuration with mock" do
+    test "custom python_interface configuration with mock" do
       config = %{
         python_deps: """
         [project]
@@ -70,8 +70,8 @@ defmodule AxiomAi.LocalCustomTest do
         max_tokens: 256
       }
 
-      # Mock Pythonx to avoid actual Python execution in tests
-      with_mock(Pythonx,
+      # Mock PythonInterface to avoid actual Python execution in tests
+      with_mock(PythonInterface,
         uv_init: fn _deps -> :ok end,
         eval: fn _code, _globals -> {"Mock AI response about the future of technology.", %{}} end,
         decode: fn result -> result end
@@ -80,14 +80,14 @@ defmodule AxiomAi.LocalCustomTest do
 
         assert {:ok, %{response: "Mock AI response about the future of technology."}} = result
 
-        # Verify Pythonx was called with expected parameters
-        assert called(Pythonx.uv_init(:_))
-        assert called(Pythonx.eval(:_, :_))
-        assert called(Pythonx.decode(:_))
+        # Verify PythonInterface was called with expected parameters
+        assert called(PythonInterface.uv_init(:_))
+        assert called(PythonInterface.eval(:_, :_))
+        assert called(PythonInterface.decode(:_))
       end
     end
 
-    test "custom pythonx configuration determines correct execution type" do
+    test "custom python_interface configuration determines correct execution type" do
       config = %{
         python_deps: "some deps",
         python_code: "some code",
@@ -95,7 +95,7 @@ defmodule AxiomAi.LocalCustomTest do
       }
 
       # Test indirectly by calling chat and ensuring it doesn't fail with missing config
-      with_mock(Pythonx,
+      with_mock(PythonInterface,
         uv_init: fn _deps -> :ok end,
         eval: fn _code, _globals -> {"Mock response", %{}} end,
         decode: fn result -> result end
@@ -105,20 +105,20 @@ defmodule AxiomAi.LocalCustomTest do
       end
     end
 
-    test "custom pythonx configuration validation" do
+    test "custom python_interface configuration validation" do
       # Test missing dependencies
       config_missing_deps = %{
         python_code: "some code",
         model_path: "test/model"
       }
 
-      with_mock(Pythonx,
+      with_mock(PythonInterface,
         uv_init: fn _deps -> :ok end,
         eval: fn _code, _globals -> {"result", %{}} end,
         decode: fn result -> result end
       ) do
         result = Local.chat(config_missing_deps, "test")
-        assert {:error, :missing_pythonx_config} = result
+        assert {:error, :missing_python_interface_config} = result
       end
 
       # Test missing code
@@ -127,7 +127,7 @@ defmodule AxiomAi.LocalCustomTest do
         model_path: "test/model"
       }
 
-      with_mock(Pythonx,
+      with_mock(PythonInterface,
         uv_init: fn _deps -> :ok end,
         eval: fn _code, _globals -> {"result", %{}} end,
         decode: fn result -> result end
@@ -145,27 +145,27 @@ defmodule AxiomAi.LocalCustomTest do
       }
 
       # Since this config has python_code, it will be detected as :python execution type
-      # But when execute_pythonx_model is called, it will fail due to missing model_path
-      with_mock(Pythonx,
+      # But when execute_python_interface_model is called, it will fail due to missing model_path
+      with_mock(PythonInterface,
         uv_init: fn _deps -> :ok end,
         eval: fn _code, _globals -> {"result", %{}} end,
         decode: fn result -> result end
       ) do
         result = Local.chat(config_missing_model, "test")
-        assert {:error, :missing_pythonx_config} = result
+        assert {:error, :missing_python_interface_config} = result
       end
     end
 
-    test "pythonx error handling" do
+    test "python_interface error handling" do
       config = %{
         python_deps: "deps",
         python_code: "code",
         model_path: "model"
       }
 
-      # Test that Pythonx errors are properly caught and returned as error tuples
+      # Test that PythonInterface errors are properly caught and returned as error tuples
       # The exact behavior will depend on how the actual implementation handles exceptions
-      with_mock(Pythonx,
+      with_mock(PythonInterface,
         uv_init: fn _deps -> :ok end,
         eval: fn _code, _globals -> {"result", %{}} end,
         decode: fn result -> result end
@@ -363,14 +363,14 @@ defmodule AxiomAi.LocalCustomTest do
   end
 
   describe "template system" do
-    test "create from pythonx_text template" do
+    test "create from python_interface_text template" do
       config =
-        Templates.create_from_template(:pythonx_text, %{
+        Templates.create_from_template(:python_interface_text, %{
           model_path: "custom/model",
           temperature: 0.9
         })
 
-      assert config.type == :pythonx
+      assert config.type == :python_interface
       assert config.model_path == "custom/model"
       assert config.temperature == 0.9
       assert is_binary(config.python_code)
@@ -407,9 +407,9 @@ defmodule AxiomAi.LocalCustomTest do
     test "list available templates" do
       templates = Templates.list_templates()
 
-      assert :pythonx_text in templates
-      assert :pythonx_vision in templates
-      assert :pythonx_speech in templates
+      assert :python_interface_text in templates
+      assert :python_interface_vision in templates
+      assert :python_interface_speech in templates
       assert :http_openai in templates
       assert :http_ollama in templates
       assert :custom in templates
@@ -427,7 +427,7 @@ defmodule AxiomAi.LocalCustomTest do
   end
 
   describe "completion method" do
-    test "completion with pythonx" do
+    test "completion with python_interface" do
       config = %{
         python_deps: "deps",
         python_code: "code",
@@ -436,7 +436,7 @@ defmodule AxiomAi.LocalCustomTest do
 
       options = %{temperature: 0.5, max_tokens: 100}
 
-      with_mock(Pythonx,
+      with_mock(PythonInterface,
         uv_init: fn _deps -> :ok end,
         eval: fn _code, _globals -> {"Completion response", %{}} end,
         decode: fn result -> result end
@@ -511,7 +511,7 @@ defmodule AxiomAi.LocalCustomTest do
       assert {:error, :missing_python_config} = result
     end
 
-    test "invalid pythonx configuration" do
+    test "invalid python_interface configuration" do
       # Test missing python_deps
       config = %{
         python_code: "some code",
@@ -520,12 +520,12 @@ defmodule AxiomAi.LocalCustomTest do
       }
 
       result = Local.chat(config, "test")
-      assert {:error, :missing_pythonx_config} = result
+      assert {:error, :missing_python_interface_config} = result
     end
   end
 
   describe "integration with main AxiomAi module" do
-    test "full integration test with custom pythonx" do
+    test "full integration test with custom python_interface" do
       config = %{
         python_deps: "deps",
         python_code: "code",
@@ -534,7 +534,7 @@ defmodule AxiomAi.LocalCustomTest do
 
       client = AxiomAi.new(:local, config)
 
-      with_mock(Pythonx,
+      with_mock(PythonInterface,
         uv_init: fn _deps -> :ok end,
         eval: fn _code, _globals -> {"Integration test response", %{}} end,
         decode: fn result -> result end
