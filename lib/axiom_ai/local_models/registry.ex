@@ -72,35 +72,39 @@ defmodule AxiomAi.LocalModels.Registry do
 
   # Built-in model configurations
   defp get_builtin_models do
+    # Cache templates to avoid redundant calls
+    text_template = Templates.create_from_template(:python_interface_text)
+    speech_template = Templates.create_from_template(:python_interface_speech)
+
     %{
       # Text Generation Models
       "qwen2.5-0.5b" => %{
         name: "Qwen2.5 0.5B",
         category: :text_generation,
-        type: :pythonx,
+        type: :python_interface,
         model_path: "Qwen/Qwen2.5-0.5B-Instruct",
-        python_deps: Templates.create_from_template(:pythonx_text).python_deps,
-        python_code: Templates.create_from_template(:pythonx_text).python_code,
+        python_deps: text_template.python_deps,
+        python_code: text_template.python_code,
         context_length: 32768,
         description: "Qwen2.5 0.5B - Small but capable model for general tasks"
       },
       "qwen2.5-1.5b" => %{
         name: "Qwen2.5 1.5B",
         category: :text_generation,
-        type: :pythonx,
+        type: :python_interface,
         model_path: "Qwen/Qwen2.5-1.5B-Instruct",
-        python_deps: Templates.create_from_template(:pythonx_text).python_deps,
-        python_code: Templates.create_from_template(:pythonx_text).python_code,
+        python_deps: text_template.python_deps,
+        python_code: text_template.python_code,
         context_length: 32768,
         description: "Qwen2.5 1.5B - Balance of performance and efficiency"
       },
       "qwen2.5-3b" => %{
         name: "Qwen2.5 3B",
         category: :text_generation,
-        type: :pythonx,
+        type: :python_interface,
         model_path: "Qwen/Qwen2.5-3B-Instruct",
-        python_deps: Templates.create_from_template(:pythonx_text).python_deps,
-        python_code: Templates.create_from_template(:pythonx_text).python_code,
+        python_deps: text_template.python_deps,
+        python_code: text_template.python_code,
         context_length: 32768,
         description: "Qwen2.5 3B - Good performance for most tasks"
       },
@@ -158,12 +162,34 @@ defmodule AxiomAi.LocalModels.Registry do
       "nanonets-ocr-s" => %{
         name: "Nanonets OCR Small",
         category: :ocr,
-        type: :pythonx,
+        type: :python_interface,
         model_path: "nanonets/Nanonets-OCR-s",
         python_deps: ocr_dependencies(),
         python_code: ocr_inference_code(),
         context_length: 8192,
         description: "Nanonets OCR Small - Optimized for optical character recognition tasks"
+      },
+
+      # Speech Models
+      "whisper-large-v3" => %{
+        name: "Whisper Large v3",
+        category: :speech,
+        type: :python_interface,
+        model_path: "openai/whisper-large-v3",
+        python_deps: speech_template.python_deps,
+        python_code: speech_template.python_code,
+        context_length: 30,
+        description: "OpenAI Whisper Large v3 - High-quality speech-to-text model"
+      },
+      "whisper-large-v3-turbo" => %{
+        name: "Whisper Large v3 Turbo",
+        category: :speech,
+        type: :python_interface,
+        model_path: "openai/whisper-large-v3-turbo",
+        python_deps: speech_template.python_deps,
+        python_code: speech_template.python_code,
+        context_length: 30,
+        description: "OpenAI Whisper Large v3 Turbo - Fast speech-to-text model"
       }
     }
   end
@@ -185,7 +211,7 @@ defmodule AxiomAi.LocalModels.Registry do
   defp ocr_dependencies do
     """
     [project]
-    name = "ocr_inference"
+    name = "axiom_ocr"
     version = "0.1.0"
     requires-python = "==3.10.*"
     dependencies = [

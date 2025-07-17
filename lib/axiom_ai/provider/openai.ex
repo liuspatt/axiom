@@ -44,6 +44,11 @@ defmodule AxiomAi.Provider.OpenAi do
   end
 
   @impl true
+  def chat(_config, _system_prompt, _history, _prompt) do
+    {:error, :not_implemented}
+  end
+
+  @impl true
   def complete(config, prompt, options) do
     %{api_key: api_key, model: model} = config
     base_url = Map.get(config, :base_url, "https://api.openai.com/v1")
@@ -104,5 +109,15 @@ defmodule AxiomAi.Provider.OpenAi do
       {:error, reason} ->
         {:error, %{message: "JSON decode error", reason: reason}}
     end
+  end
+
+  @impl true
+  def stream(_config, _message) do
+    {:error, :not_implemented}
+  end
+
+  @impl true
+  def stream(_config, _system_prompt, _history, _prompt) do
+    {:error, :not_implemented}
   end
 end

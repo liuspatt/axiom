@@ -44,6 +44,11 @@ defmodule AxiomAi.Provider.Anthropic do
   end
 
   @impl true
+  def chat(_config, _system_prompt, _history, _prompt) do
+    {:error, :not_implemented}
+  end
+
+  @impl true
   def complete(config, prompt, options) do
     %{api_key: api_key, model: model} = config
     base_url = Map.get(config, :base_url, "https://api.anthropic.com")
@@ -109,5 +114,15 @@ defmodule AxiomAi.Provider.Anthropic do
       {:error, reason} ->
         {:error, %{message: "JSON decode error", reason: reason}}
     end
+  end
+
+  @impl true
+  def stream(_config, _message) do
+    {:error, :not_implemented}
+  end
+
+  @impl true
+  def stream(_config, _system_prompt, _history, _prompt) do
+    {:error, :not_implemented}
   end
 end

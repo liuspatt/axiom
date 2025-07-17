@@ -15,7 +15,9 @@ defmodule AxiomAi.LocalModels.Categories do
     # Text embedding models
     :embedding,
     # HTTP/API-based models (Ollama, vLLM, etc.)
-    :http_endpoints
+    :http_endpoints,
+    # Speech-to-text models (Whisper, etc.)
+    :speech
   ]
 
   @doc """
@@ -34,6 +36,7 @@ defmodule AxiomAi.LocalModels.Categories do
   def get_description(:ocr), do: "Optical Character Recognition models for text extraction"
   def get_description(:embedding), do: "Text embedding models for semantic similarity"
   def get_description(:http_endpoints), do: "Models served via HTTP APIs (Ollama, vLLM, etc.)"
+  def get_description(:speech), do: "Speech-to-text models for audio transcription"
   def get_description(_), do: "Unknown category"
 
   @doc """

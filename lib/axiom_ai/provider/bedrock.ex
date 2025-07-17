@@ -26,6 +26,11 @@ defmodule AxiomAi.Provider.Bedrock do
   end
 
   @impl true
+  def chat(_config, _system_prompt, _history, _prompt) do
+    {:error, :not_implemented}
+  end
+
+  @impl true
   def complete(config, prompt, options) do
     # Merge options into config for complete method
     merged_config = Map.merge(config, options)
@@ -96,5 +101,15 @@ defmodule AxiomAi.Provider.Bedrock do
       e ->
         {:error, {:bedrock_error, Exception.message(e)}}
     end
+  end
+
+  @impl true
+  def stream(_config, _message) do
+    {:error, :not_implemented}
+  end
+
+  @impl true
+  def stream(_config, _system_prompt, _history, _prompt) do
+    {:error, :not_implemented}
   end
 end
