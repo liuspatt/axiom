@@ -1,7 +1,7 @@
 defmodule AxiomAi.MixProject do
   use Mix.Project
 
-  @version "0.1.6"
+  @version "0.1.7"
   @source_url "https://github.com/liuspatt/axiom-ai"
 
   def project do
@@ -57,7 +57,7 @@ defmodule AxiomAi.MixProject do
   defp package do
     [
       name: "axiom_ai",
-      files: ~w(lib .formatter.exs mix.exs README* LICENSE*),
+      files: ~w(lib c_src .formatter.exs mix.exs Makefile Makefile.win README* LICENSE*),
       licenses: ["MIT"],
       links: %{"GitHub" => @source_url},
       maintainers: ["Luis Patt"]
