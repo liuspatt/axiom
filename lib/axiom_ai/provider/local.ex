@@ -462,7 +462,7 @@ defmodule AxiomAi.Provider.Local do
         :filename.basedir(:user_cache, "python_interface")
       end
 
-    version = "0.1.5"  # Could be made dynamic with Mix.Project.config()[:version]
+    version = Application.spec(:axiom_ai, :vsn) |> to_string()
     Path.join([base_dir, version, "uv", "0.5.21"])
   end
 
@@ -602,38 +602,6 @@ defmodule AxiomAi.Provider.Local do
     """
   end
 
-  @dialyzer {:nowarn_function, initialize_with_uv_init: 1}
-  defp initialize_with_uv_init(python_deps) when is_binary(python_deps) do
-    # Handle case where dependencies are passed as TOML string from production
-    IO.puts("Received TOML string dependencies:")
-    IO.puts(python_deps)
-
-    try do
-      Elixir.PythonInterface.uv_init(python_deps, [])
-      :ok
-    rescue
-      e ->
-        error_msg = Exception.message(e)
-        IO.puts("❌ TOML string initialization failed: #{error_msg}")
-
-        if String.contains?(error_msg, "already been initialized") do
-          :ok
-        else
-          # Try to extract dependencies from malformed TOML and convert to list format
-          case extract_deps_from_toml(python_deps) do
-            {:ok, deps_list} ->
-              IO.puts("Extracted dependencies from TOML: #{inspect(deps_list)}")
-              # Extract python version from TOML if available
-              python_version = extract_python_version_from_toml(python_deps)
-              # Extract environment name from TOML project name
-              python_env_name = extract_env_name_from_toml(python_deps)
-              initialize_with_uv_init(deps_list, python_version, python_env_name)
-            {:error, _} ->
-              {:error, {:uv_init_failed, error_msg}}
-          end
-        end
-    end
-  end
 
   defp initialize_with_uv_init(python_deps, python_version, python_env_name) when is_list(python_deps) do
     # Convert list of dependencies to TOML format - fix TOML syntax
@@ -693,63 +661,6 @@ defmodule AxiomAi.Provider.Local do
   end
 
 
-  # Extract dependencies from TOML string for fallback
-  @dialyzer {:nowarn_function, extract_deps_from_toml: 1}
-  defp extract_deps_from_toml(toml_string) do
-    try do
-      # Extract dependencies section using regex
-      case Regex.run(~r/dependencies\s*=\s*\[(.*?)\]/s, toml_string, capture: :all_but_first) do
-        [deps_section] ->
-          # Clean and parse dependency strings
-          deps =
-            deps_section
-            |> String.split("\n")
-            |> Enum.map(&String.trim/1)
-            |> Enum.filter(fn line -> String.contains?(line, "\"") end)
-            |> Enum.map(fn line ->
-              line
-              |> String.replace(~r/^\s*"/, "")
-              |> String.replace(~r/",?\s*$/, "")
-            end)
-            |> Enum.filter(fn dep -> String.length(dep) > 0 end)
-
-          {:ok, deps}
-        _ ->
-          {:error, :no_dependencies_found}
-      end
-    rescue
-      _ ->
-        {:error, :regex_failed}
-    end
-  end
-
-  # Extract python version from TOML string
-  @dialyzer {:nowarn_function, extract_python_version_from_toml: 1}
-  defp extract_python_version_from_toml(toml_string) do
-    try do
-      case Regex.run(~r/requires-python\s*=\s*"([^"]+)"/i, toml_string, capture: :all_but_first) do
-        [version] -> version
-        _ -> ">=3.9"  # Default fallback
-      end
-    rescue
-      _ ->
-        ">=3.9"  # Default fallback
-    end
-  end
-
-  # Extract environment name from TOML string
-  @dialyzer {:nowarn_function, extract_env_name_from_toml: 1}
-  defp extract_env_name_from_toml(toml_string) do
-    try do
-      case Regex.run(~r/name\s*=\s*"([^"]+)"/i, toml_string, capture: :all_but_first) do
-        [name] -> name
-        _ -> "default_env"  # Default fallback
-      end
-    rescue
-      _ ->
-        "default_env"  # Default fallback
-    end
-  end
 
   defp create_temp_script(script_content) do
     temp_dir = System.tmp_dir!()
