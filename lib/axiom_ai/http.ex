@@ -6,8 +6,8 @@ defmodule AxiomAi.Http do
   @doc """
   Performs a POST request with JSON payload.
   """
-  @spec post(String.t(), map(), list()) :: {:ok, map()} | {:error, any()}
-  def post(url, payload, headers \\ []) do
+  @spec post(String.t(), map(), list(), keyword()) :: {:ok, map()} | {:error, any()}
+  def post(url, payload, headers \\ [], opts \\ []) do
     json_payload = Jason.encode!(payload)
 
     default_headers = [
@@ -17,7 +17,11 @@ defmodule AxiomAi.Http do
 
     final_headers = default_headers ++ headers
 
-    case HTTPoison.post(url, json_payload, final_headers, timeout: 30_000, recv_timeout: 30_000) do
+    # Extract timeout options with defaults
+    timeout = Keyword.get(opts, :timeout, 30_000)
+    recv_timeout = Keyword.get(opts, :recv_timeout, 30_000)
+
+    case HTTPoison.post(url, json_payload, final_headers, timeout: timeout, recv_timeout: recv_timeout) do
       {:ok, response} ->
         {:ok,
          %{status_code: response.status_code, body: response.body, headers: response.headers}}
@@ -30,15 +34,19 @@ defmodule AxiomAi.Http do
   @doc """
   Performs a GET request.
   """
-  @spec get(String.t(), list()) :: {:ok, map()} | {:error, any()}
-  def get(url, headers \\ []) do
+  @spec get(String.t(), list(), keyword()) :: {:ok, map()} | {:error, any()}
+  def get(url, headers \\ [], opts \\ []) do
     default_headers = [
       {"User-Agent", "AxiomAI/0.1.0"}
     ]
 
     final_headers = default_headers ++ headers
 
-    case HTTPoison.get(url, final_headers, timeout: 30_000, recv_timeout: 30_000) do
+    # Extract timeout options with defaults
+    timeout = Keyword.get(opts, :timeout, 30_000)
+    recv_timeout = Keyword.get(opts, :recv_timeout, 30_000)
+
+    case HTTPoison.get(url, final_headers, timeout: timeout, recv_timeout: recv_timeout) do
       {:ok, response} ->
         {:ok,
          %{status_code: response.status_code, body: response.body, headers: response.headers}}
@@ -51,8 +59,8 @@ defmodule AxiomAi.Http do
   @doc """
   Performs a POST request with JSON payload and returns a stream for processing chunked responses.
   """
-  @spec post_stream(String.t(), map(), list()) :: {:ok, Enumerable.t()} | {:error, any()}
-  def post_stream(url, payload, headers \\ []) do
+  @spec post_stream(String.t(), map(), list(), keyword()) :: {:ok, Enumerable.t()} | {:error, any()}
+  def post_stream(url, payload, headers \\ [], opts \\ []) do
     json_payload = Jason.encode!(payload)
 
     default_headers = [
@@ -62,20 +70,24 @@ defmodule AxiomAi.Http do
 
     final_headers = default_headers ++ headers
 
+    # Extract timeout options with defaults
+    timeout = Keyword.get(opts, :timeout, 30_000)
+    recv_timeout = Keyword.get(opts, :recv_timeout, 30_000)
+
     case HTTPoison.post(url, json_payload, final_headers,
            stream_to: self(),
-           timeout: 30_000,
-           recv_timeout: 30_000
+           timeout: timeout,
+           recv_timeout: recv_timeout
          ) do
       {:ok, %HTTPoison.AsyncResponse{id: id}} ->
-        {:ok, build_stream(id)}
+        {:ok, build_stream(id, recv_timeout)}
 
       {:error, %HTTPoison.Error{reason: reason}} ->
         {:error, reason}
     end
   end
 
-  defp build_stream(request_id) do
+  defp build_stream(request_id, recv_timeout) do
     Stream.resource(
       fn -> request_id end,
       fn id ->
@@ -96,7 +108,7 @@ defmodule AxiomAi.Http do
             # Handle unexpected messages or errors
             {[{:error, {:unexpected_message, msg}}], id}
         after
-          30_000 ->
+          recv_timeout ->
             {:halt, id}
         end
       end,

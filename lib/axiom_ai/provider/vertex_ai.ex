@@ -31,8 +31,9 @@ defmodule AxiomAi.Provider.VertexAi do
     }
 
     headers = build_headers(config)
+    http_opts = build_http_opts(config)
 
-    case Http.post(endpoint, payload, headers) do
+    case Http.post(endpoint, payload, headers, http_opts) do
       {:ok, %{status_code: 200, body: body}} ->
         parse_response(body)
 
@@ -63,8 +64,9 @@ defmodule AxiomAi.Provider.VertexAi do
     }
 
     headers = build_headers(config)
+    http_opts = build_http_opts(config)
 
-    case Http.post(endpoint, payload, headers) do
+    case Http.post(endpoint, payload, headers, http_opts) do
       {:ok, %{status_code: 200, body: body}} ->
         parse_response(body)
 
@@ -98,8 +100,9 @@ defmodule AxiomAi.Provider.VertexAi do
     }
 
     headers = build_headers(config)
+    http_opts = build_http_opts(config)
 
-    case Http.post(endpoint, payload, headers) do
+    case Http.post(endpoint, payload, headers, http_opts) do
       {:ok, %{status_code: 200, body: body}} ->
         parse_completion_response(body)
 
@@ -133,8 +136,9 @@ defmodule AxiomAi.Provider.VertexAi do
     }
 
     headers = build_headers(config)
+    http_opts = build_http_opts(config)
 
-    case Http.post_stream(endpoint, payload, headers) do
+    case Http.post_stream(endpoint, payload, headers, http_opts) do
       {:ok, response} ->
         {:ok, response}
 
@@ -162,8 +166,9 @@ defmodule AxiomAi.Provider.VertexAi do
     }
 
     headers = build_headers(config)
+    http_opts = build_http_opts(config)
 
-    case Http.post_stream(endpoint, payload, headers) do
+    case Http.post_stream(endpoint, payload, headers, http_opts) do
       {:ok, response} ->
         {:ok, response}
 
@@ -192,6 +197,13 @@ defmodule AxiomAi.Provider.VertexAi do
       {:ok, token} -> token
       {:error, reason} -> raise "Failed to get access token: #{inspect(reason)}"
     end
+  end
+
+  defp build_http_opts(config) do
+    [
+      timeout: Map.get(config, :timeout, 30_000),
+      recv_timeout: Map.get(config, :recv_timeout, 30_000)
+    ]
   end
 
   defp parse_response(body) do

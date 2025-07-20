@@ -558,7 +558,7 @@ defmodule AxiomAi.MagicDocTest do
       |> Enum.each(fn {client, index} ->
         IO.puts("🔄 Testing client #{index} - Round 2...")
         case AxiomAi.chat(client, "test") do
-          {:ok, response} -> 
+          {:ok, _response} -> 
             IO.puts("✅ Client #{index} Round 2 successful")
           {:error, reason} -> 
             IO.puts("❌ Client #{index} Round 2 failed: #{inspect(reason)}")

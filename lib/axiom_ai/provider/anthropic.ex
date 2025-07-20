@@ -31,7 +31,8 @@ defmodule AxiomAi.Provider.Anthropic do
       {"anthropic-version", "2023-06-01"}
     ]
 
-    case Http.post(endpoint, payload, headers) do
+    http_opts = build_http_opts(config)
+    case Http.post(endpoint, payload, headers, http_opts) do
       {:ok, %{status_code: 200, body: body}} ->
         parse_response(body)
 
@@ -72,7 +73,8 @@ defmodule AxiomAi.Provider.Anthropic do
       {"anthropic-version", "2023-06-01"}
     ]
 
-    case Http.post(endpoint, payload, headers) do
+    http_opts = build_http_opts(config)
+    case Http.post(endpoint, payload, headers, http_opts) do
       {:ok, %{status_code: 200, body: body}} ->
         parse_completion_response(body)
 
@@ -124,5 +126,12 @@ defmodule AxiomAi.Provider.Anthropic do
   @impl true
   def stream(_config, _system_prompt, _history, _prompt) do
     {:error, :not_implemented}
+  end
+
+  defp build_http_opts(config) do
+    [
+      timeout: Map.get(config, :timeout, 30_000),
+      recv_timeout: Map.get(config, :recv_timeout, 30_000)
+    ]
   end
 end
