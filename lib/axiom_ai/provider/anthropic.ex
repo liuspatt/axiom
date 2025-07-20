@@ -32,6 +32,7 @@ defmodule AxiomAi.Provider.Anthropic do
     ]
 
     http_opts = build_http_opts(config)
+
     case Http.post(endpoint, payload, headers, http_opts) do
       {:ok, %{status_code: 200, body: body}} ->
         parse_response(body)
@@ -74,6 +75,7 @@ defmodule AxiomAi.Provider.Anthropic do
     ]
 
     http_opts = build_http_opts(config)
+
     case Http.post(endpoint, payload, headers, http_opts) do
       {:ok, %{status_code: 200, body: body}} ->
         parse_completion_response(body)

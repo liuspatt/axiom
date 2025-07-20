@@ -284,43 +284,75 @@ defmodule AxiomAi.Provider.Local do
       nil ->
         # Try to start the supervisor if it's not running
         IO.puts("PythonInterface.Supervisor not found, trying to start it...")
-        case Supervisor.start_link([Elixir.PythonInterface.Janitor], strategy: :one_for_one, name: Elixir.PythonInterface.Supervisor) do
+
+        case Supervisor.start_link([Elixir.PythonInterface.Janitor],
+               strategy: :one_for_one,
+               name: Elixir.PythonInterface.Supervisor
+             ) do
           {:ok, _pid} ->
             IO.puts("✅ PythonInterface.Supervisor started successfully")
-            initialize_or_switch_python_environment(python_deps, category, python_version, python_env_name)
+
+            initialize_or_switch_python_environment(
+              python_deps,
+              category,
+              python_version,
+              python_env_name
+            )
+
           {:error, {:already_started, _pid}} ->
             IO.puts("✅ PythonInterface.Supervisor already started")
-            initialize_or_switch_python_environment(python_deps, category, python_version, python_env_name)
+
+            initialize_or_switch_python_environment(
+              python_deps,
+              category,
+              python_version,
+              python_env_name
+            )
+
           {:error, reason} ->
             IO.puts("❌ Failed to start PythonInterface.Supervisor: #{inspect(reason)}")
             {:error, {:supervisor_start_failed, reason}}
         end
+
       _pid ->
         # Supervisor is running, initialize the environment
         IO.puts("PythonInterface.Supervisor is running")
-        initialize_or_switch_python_environment(python_deps, category, python_version, python_env_name)
+
+        initialize_or_switch_python_environment(
+          python_deps,
+          category,
+          python_version,
+          python_env_name
+        )
     end
   end
 
-  defp initialize_or_switch_python_environment(python_deps, category, python_version, python_env_name) do
+  defp initialize_or_switch_python_environment(
+         python_deps,
+         category,
+         python_version,
+         python_env_name
+       ) do
     # Check if Python interpreter is already initialized
     init_key = String.to_atom("python_initialized_#{python_env_name}")
-    
+
     case Process.get(init_key) do
       true ->
         # Environment already set up, just switch to it
         IO.puts("Switching to existing Python environment: #{python_env_name}")
         switch_python_environment(python_env_name, category)
-        
+
       _ ->
         # First time initialization
         IO.puts("Initializing new Python environment: #{python_env_name}")
+
         case initialize_python_environment(python_deps, category, python_version, python_env_name) do
           :ok ->
             # Mark this environment as initialized
             Process.put(init_key, true)
             # Store environment info for later switching including the actual TOML used
             toml_used = generate_toml_config(python_deps, python_version, python_env_name)
+
             env_info = %{
               python_deps: python_deps,
               python_version: python_version,
@@ -328,8 +360,10 @@ defmodule AxiomAi.Provider.Local do
               category: category,
               toml_content: toml_used
             }
+
             Process.put(String.to_atom("env_info_#{python_env_name}"), env_info)
             :ok
+
           {:error, reason} ->
             {:error, reason}
         end
@@ -340,56 +374,64 @@ defmodule AxiomAi.Provider.Local do
     # Get the stored environment info
     env_info_key = String.to_atom("env_info_#{python_env_name}")
     env_info = Process.get(env_info_key)
-    
+
     if env_info do
       IO.puts("Switching Python sys.path to environment: #{python_env_name}")
-      
+
       # Use the stored TOML content to ensure exact same cache_id calculation
-      toml_content = Map.get(env_info, :toml_content) || generate_toml_config(env_info.python_deps, env_info.python_version, env_info.python_env_name)
-      cache_id = 
+      toml_content =
+        Map.get(env_info, :toml_content) ||
+          generate_toml_config(
+            env_info.python_deps,
+            env_info.python_version,
+            env_info.python_env_name
+          )
+
+      cache_id =
         toml_content
         |> :erlang.md5()
         |> Base.encode32(case: :lower, padding: false)
-      
+
       IO.puts("Environment switching debug info:")
       IO.puts("  Environment: #{python_env_name}")
       IO.puts("  Cache ID: #{cache_id}")
       IO.puts("  Dependencies: #{inspect(env_info.python_deps)}")
-      
+
       # Use the same cache directory logic as PythonInterface.Uv
       cache_dir = get_proper_cache_dir()
       project_dir = Path.join([cache_dir, "projects", cache_id])
       venv_packages_path = Path.join([project_dir, ".venv", "lib", "python*", "site-packages"])
-      
+
       IO.puts("  Project dir: #{project_dir}")
       IO.puts("  Looking for: #{venv_packages_path}")
-      
+
       # Find the actual Python version directory
-      actual_venv_path = case Path.wildcard(venv_packages_path) do
-        [path | _] -> path
-        [] -> nil
-      end
-      
+      actual_venv_path =
+        case Path.wildcard(venv_packages_path) do
+          [path | _] -> path
+          [] -> nil
+        end
+
       if actual_venv_path do
         # Switch sys.path to use this environment's packages and clear module cache
         switch_code = """
         import sys
         import importlib
-        
+
         # Clear only safe modules to avoid torch docstring conflicts
         # Focus on document processing modules which are safer to reload
         modules_to_clear = []
         for module_name in list(sys.modules.keys()):
             # Only clear document processing modules that are safe to reload
-            if any(pkg == module_name or module_name.startswith(pkg + '.') 
+            if any(pkg == module_name or module_name.startswith(pkg + '.')
                    for pkg in ['docx', 'pptx', 'fitz']):
                 modules_to_clear.append(module_name)
-        
+
         for module_name in modules_to_clear:
             if module_name in sys.modules:
                 del sys.modules[module_name]
                 print(f"Cleared module: {module_name}")
-        
+
         print("Note: Relying on sys.path switching for torch/ML modules to avoid reload conflicts")
 
         # Remove old venv paths
@@ -404,13 +446,13 @@ defmodule AxiomAi.Provider.Local do
         if new_path not in sys.path:
             sys.path.insert(0, new_path)
             print(f"Added new path: {new_path}")
-        
+
         # Verify path switching worked
         print(f"Current sys.path entries with site-packages:")
         for i, path in enumerate(sys.path):
             if 'site-packages' in path:
                 print(f"  {i}: {path}")
-        
+
         # Test if we can import a key module from this environment
         import importlib.util
         try:
@@ -428,11 +470,11 @@ defmodule AxiomAi.Provider.Local do
                     print("❌ docx module NOT found in magic_doc environment")
         except Exception as e:
             print(f"Module verification error: {e}")
-            
+
         print(f"✅ Switched to environment: #{python_env_name}")
         "success"
         """
-        
+
         # Execute the path switching code using PythonInterface.eval
         try do
           {_result, _updated_globals} = Elixir.PythonInterface.eval(switch_code, %{})
@@ -441,7 +483,8 @@ defmodule AxiomAi.Provider.Local do
         rescue
           e ->
             IO.puts("❌ Failed to switch Python environment: #{inspect(e)}")
-            :ok  # Don't fail, just log
+            # Don't fail, just log
+            :ok
         end
       else
         IO.puts("⚠️ Could not find venv path for environment: #{python_env_name}")
@@ -474,18 +517,20 @@ defmodule AxiomAi.Provider.Local do
 
     # Check if this is the first Python environment initialization
     global_init_key = :python_interpreter_initialized
-    
+
     case Process.get(global_init_key) do
       nil ->
         # First environment - do full initialization
         IO.puts("First Python environment initialization")
+
         case initialize_with_uv_init(python_deps, python_version, python_env_name) do
           :ok ->
             Process.put(global_init_key, python_env_name)
             IO.puts("✅ Python environment initialized successfully")
-            
+
             # Store environment info for switching including the actual TOML used
             toml_used = generate_toml_config(python_deps, python_version, python_env_name)
+
             env_info = %{
               python_deps: python_deps,
               python_version: python_version,
@@ -493,21 +538,24 @@ defmodule AxiomAi.Provider.Local do
               category: category,
               toml_content: toml_used
             }
+
             Process.put(String.to_atom("env_info_#{python_env_name}"), env_info)
-            
+
             # No need to switch - we're already in the right environment
             :ok
+
           {:error, reason} ->
             IO.puts("❌ uv_init failed, trying PythonInterface.init_environment...")
-            
+
             # Fallback to PythonInterface.init_environment
             case PythonInterface.init_environment(python_deps, category) do
               :ok ->
                 Process.put(global_init_key, python_env_name)
                 IO.puts("✅ PythonInterface.init_environment succeeded")
-                
+
                 # Store environment info for switching including the actual TOML used
                 toml_used = generate_toml_config(python_deps, python_version, python_env_name)
+
                 env_info = %{
                   python_deps: python_deps,
                   python_version: python_version,
@@ -515,8 +563,9 @@ defmodule AxiomAi.Provider.Local do
                   category: category,
                   toml_content: toml_used
                 }
+
                 Process.put(String.to_atom("env_info_#{python_env_name}"), env_info)
-                
+
                 :ok
 
               {:error, fallback_reason} ->
@@ -526,15 +575,18 @@ defmodule AxiomAi.Provider.Local do
                 {:error, {:initialization_failed, reason, fallback_reason}}
             end
         end
-      
+
       first_env_name ->
         # Subsequent environment - just set up dependencies, don't reinitialize interpreter
-        IO.puts("Setting up additional Python environment (interpreter already initialized with: #{first_env_name})")
-        
+        IO.puts(
+          "Setting up additional Python environment (interpreter already initialized with: #{first_env_name})"
+        )
+
         case setup_additional_environment(python_deps, python_version, python_env_name) do
           :ok ->
             # Store environment info for switching even for additional environments including the actual TOML used
             toml_used = generate_toml_config(python_deps, python_version, python_env_name)
+
             env_info = %{
               python_deps: python_deps,
               python_version: python_version,
@@ -542,35 +594,45 @@ defmodule AxiomAi.Provider.Local do
               category: category,
               toml_content: toml_used
             }
+
             Process.put(String.to_atom("env_info_#{python_env_name}"), env_info)
-            
+
             # Immediately switch to this environment after setup
             IO.puts("🔄 Switching to newly created environment: #{python_env_name}")
             switch_python_environment(python_env_name, category)
-            
+
             IO.puts("✅ Additional Python environment set up successfully")
             :ok
+
           {:error, reason} ->
-            IO.puts("⚠️ Failed to set up additional environment, but continuing: #{inspect(reason)}")
-            :ok  # Don't fail the whole process
+            IO.puts(
+              "⚠️ Failed to set up additional environment, but continuing: #{inspect(reason)}"
+            )
+
+            # Don't fail the whole process
+            :ok
         end
     end
   end
 
   defp setup_additional_environment(python_deps, python_version, python_env_name) do
     IO.puts("Setting up additional environment without reinitializing interpreter")
-    
+
     # Use uv to prepare the dependencies but don't initialize the interpreter
     try do
       # Call uv_init which will create the virtual environment and dependencies
       # but won't reinitialize the Python interpreter since it's already running
-      Elixir.PythonInterface.uv_init(generate_toml_config(python_deps, python_version, python_env_name), [])
+      Elixir.PythonInterface.uv_init(
+        generate_toml_config(python_deps, python_version, python_env_name),
+        []
+      )
+
       :ok
     rescue
       e ->
         error_msg = Exception.message(e)
         IO.puts("⚠️ Additional environment setup warning: #{error_msg}")
-        
+
         if String.contains?(error_msg, "already been initialized") do
           IO.puts("✅ Dependencies prepared, interpreter already initialized")
           :ok
@@ -580,7 +642,8 @@ defmodule AxiomAi.Provider.Local do
     end
   end
 
-  defp generate_toml_config(python_deps, python_version, python_env_name) when is_list(python_deps) do
+  defp generate_toml_config(python_deps, python_version, python_env_name)
+       when is_list(python_deps) do
     deps_string =
       python_deps
       |> Enum.map(fn dep -> "    \"#{dep}\"" end)
@@ -602,12 +665,13 @@ defmodule AxiomAi.Provider.Local do
     """
   end
 
-
-  defp initialize_with_uv_init(python_deps, python_version, python_env_name) when is_list(python_deps) do
+  defp initialize_with_uv_init(python_deps, python_version, python_env_name)
+       when is_list(python_deps) do
     # Convert list of dependencies to TOML format - fix TOML syntax
     deps_string =
       python_deps
-      |> Enum.map(fn dep -> "    \"#{dep}\"" end)  # Remove trailing comma
+      # Remove trailing comma
+      |> Enum.map(fn dep -> "    \"#{dep}\"" end)
       |> Enum.join(",\n")
 
     toml_config = """
@@ -630,27 +694,39 @@ defmodule AxiomAi.Provider.Local do
     try do
       # Use default uv_init with environment name embedded in TOML project name for isolation
       Elixir.PythonInterface.uv_init(toml_config, [])
-      IO.puts("✅ Python dependencies initialized successfully for environment '#{python_env_name}'")
+
+      IO.puts(
+        "✅ Python dependencies initialized successfully for environment '#{python_env_name}'"
+      )
+
       :ok
     rescue
       e ->
         error_msg = Exception.message(e)
-        IO.puts("❌ Python initialization failed for environment '#{python_env_name}': #{error_msg}")
+
+        IO.puts(
+          "❌ Python initialization failed for environment '#{python_env_name}': #{error_msg}"
+        )
 
         if String.contains?(error_msg, "already been initialized") do
-          IO.puts("✅ Python already initialized for environment '#{python_env_name}', switching to it...")
-          
+          IO.puts(
+            "✅ Python already initialized for environment '#{python_env_name}', switching to it..."
+          )
+
           # Store environment info for switching including the actual TOML used
           toml_used = generate_toml_config(python_deps, python_version, python_env_name)
+
           env_info = %{
             python_deps: python_deps,
             python_version: python_version,
             python_env_name: python_env_name,
-            category: :text_generation,  # Default category since we don't have it here
+            # Default category since we don't have it here
+            category: :text_generation,
             toml_content: toml_used
           }
+
           Process.put(String.to_atom("env_info_#{python_env_name}"), env_info)
-          
+
           # Switch to this environment
           switch_python_environment(python_env_name, :text_generation)
           :ok
@@ -659,8 +735,6 @@ defmodule AxiomAi.Provider.Local do
         end
     end
   end
-
-
 
   defp create_temp_script(script_content) do
     temp_dir = System.tmp_dir!()
@@ -815,5 +889,12 @@ defmodule AxiomAi.Provider.Local do
   @impl true
   def stream(_config, _system_prompt, _history, _prompt) do
     {:error, :not_implemented}
+  end
+
+  defp build_http_opts(config) do
+    [
+      timeout: Map.get(config, :timeout, 30_000),
+      recv_timeout: Map.get(config, :recv_timeout, 30_000)
+    ]
   end
 end

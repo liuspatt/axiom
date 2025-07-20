@@ -157,10 +157,226 @@ defmodule AxiomAi.Config do
   end
 
   defp validate_python_config(config) do
-    validate_required(config, [:python_script, :model_path])
+    config
+    |> validate_required([:python_script, :model_path])
+    |> validate_python_version()
+    |> validate_python_env_name()
+    |> validate_model_path()
+    |> validate_temperature()
+    |> validate_max_tokens()
   end
 
   defp validate_python_interface_config(config) do
-    validate_required(config, [:python_code, :python_deps, :model_path])
+    config
+    |> validate_required([:python_code, :python_deps, :model_path])
+    |> validate_python_version()
+    |> validate_python_env_name()
+    |> validate_python_deps()
+    |> validate_python_code()
+    |> validate_model_path()
+    |> validate_temperature()
+    |> validate_max_tokens()
+  end
+
+  defp validate_python_version(config) do
+    case Map.get(config, :python_version) do
+      nil ->
+        Map.put(config, :python_version, ">=3.9")
+
+      version when is_binary(version) ->
+        if String.match?(version, ~r/^(>=|==|>|<|<=|!=)\d+\.\d+(\.\d+)?$/) do
+          config
+        else
+          raise ArgumentError,
+                "Invalid python_version format: #{version}. Expected format: '>=3.9', '==3.10', etc."
+        end
+
+      _ ->
+        raise ArgumentError,
+              "python_version must be a string with version constraint (e.g., '>=3.9')"
+    end
+  end
+
+  defp validate_python_env_name(config) do
+    case Map.get(config, :python_env_name) do
+      nil ->
+        Map.put(config, :python_env_name, "default_env")
+
+      env_name when is_binary(env_name) ->
+        if String.match?(env_name, ~r/^[a-zA-Z][a-zA-Z0-9_]*$/) do
+          config
+        else
+          raise ArgumentError,
+                "Invalid python_env_name: #{env_name}. Must start with a letter and contain only letters, numbers, and underscores"
+        end
+
+      _ ->
+        raise ArgumentError, "python_env_name must be a string"
+    end
+  end
+
+  defp validate_python_deps(config) do
+    case Map.get(config, :python_deps) do
+      deps when is_list(deps) ->
+        if Enum.all?(deps, &is_binary/1) do
+          validate_python_deps_content(deps)
+          config
+        else
+          raise ArgumentError, "All python_deps must be strings"
+        end
+
+      deps when is_binary(deps) ->
+        # Handle TOML string format
+        config
+
+      _ ->
+        raise ArgumentError, "python_deps must be a list of strings or a TOML string"
+    end
+  end
+
+  defp validate_python_deps_content(deps) do
+    Enum.each(deps, fn dep ->
+      cond do
+        # Allow pip index URLs with -i flag
+        String.starts_with?(dep, "-i ") or dep == "-i" ->
+          validate_pip_index_url(dep)
+
+        # Allow other pip flags
+        String.starts_with?(dep, "--") ->
+          validate_pip_flag(dep)
+
+        # Allow standard package specifications
+        String.contains?(dep, "==") or String.contains?(dep, ">=") or String.contains?(dep, "<=") or
+          String.contains?(dep, ">") or String.contains?(dep, "<") or String.contains?(dep, "~=") ->
+          validate_package_spec(dep)
+
+        # Allow simple package names (including dots)
+        String.match?(dep, ~r/^[a-zA-Z0-9_.-]+$/) ->
+          :ok
+
+        # Allow package names with extras (e.g., "package[extra]")
+        String.match?(dep, ~r/^[a-zA-Z0-9_.-]+\[[a-zA-Z0-9_,-]+\]/) ->
+          :ok
+
+        true ->
+          raise ArgumentError,
+                "Invalid python dependency format: #{dep}. Expected package name, version specification, or pip flag."
+      end
+    end)
+  end
+
+  defp validate_pip_index_url(dep) do
+    # Extract URL from "-i URL" format
+    case String.split(dep, " ", parts: 2) do
+      ["-i", url] when byte_size(url) > 0 ->
+        if String.starts_with?(url, "http://") or String.starts_with?(url, "https://") do
+          :ok
+        else
+          raise ArgumentError, "Invalid index URL: #{url}. Must start with http:// or https://"
+        end
+
+      ["-i"] ->
+        raise ArgumentError, "Invalid -i flag format: #{dep}. Expected '-i URL' (URL is missing)"
+
+      _ ->
+        raise ArgumentError, "Invalid -i flag format: #{dep}. Expected '-i URL'"
+    end
+  end
+
+  defp validate_pip_flag(dep) do
+    # Allow common pip flags
+    allowed_flags = [
+      "--extra-index-url",
+      "--trusted-host",
+      "--find-links",
+      "--no-deps",
+      "--no-cache-dir",
+      "--upgrade",
+      "--force-reinstall",
+      "--no-binary",
+      "--only-binary"
+    ]
+
+    flag = dep |> String.split(" ") |> List.first()
+
+    unless flag in allowed_flags do
+      raise ArgumentError,
+            "Unsupported pip flag: #{flag}. Allowed flags: #{Enum.join(allowed_flags, ", ")}"
+    end
+  end
+
+  defp validate_package_spec(dep) do
+    # Basic validation for package specifications
+    # Allow common patterns like "package==1.0.0", "package >= 1.0.0", etc.
+    # Allow spaces around operators
+    unless String.match?(
+             dep,
+             ~r/^[a-zA-Z0-9_.-]+(\[[a-zA-Z0-9_,-]+\])?\s*(==|>=|<=|>|<|~=|!=)\s*.+$/
+           ) do
+      raise ArgumentError,
+            "Invalid package specification: #{dep}. Expected format: 'package>=version'"
+    end
+  end
+
+  defp validate_python_code(config) do
+    case Map.get(config, :python_code) do
+      code when is_binary(code) ->
+        if String.contains?(code, "def generate_response") do
+          config
+        else
+          raise ArgumentError, "python_code must contain a 'generate_response' function"
+        end
+
+      _ ->
+        raise ArgumentError, "python_code must be a string containing Python code"
+    end
+  end
+
+  defp validate_model_path(config) do
+    case Map.get(config, :model_path) do
+      path when is_binary(path) ->
+        if String.length(path) > 0 do
+          config
+        else
+          raise ArgumentError, "model_path cannot be empty"
+        end
+
+      _ ->
+        raise ArgumentError, "model_path must be a string"
+    end
+  end
+
+  defp validate_temperature(config) do
+    case Map.get(config, :temperature) do
+      nil ->
+        config
+
+      temp when is_number(temp) ->
+        if temp >= 0.0 and temp <= 2.0 do
+          config
+        else
+          raise ArgumentError, "temperature must be between 0.0 and 2.0, got: #{temp}"
+        end
+
+      _ ->
+        raise ArgumentError, "temperature must be a number"
+    end
+  end
+
+  defp validate_max_tokens(config) do
+    case Map.get(config, :max_tokens) do
+      nil ->
+        config
+
+      tokens when is_integer(tokens) ->
+        if tokens > 0 and tokens <= 4096 do
+          config
+        else
+          raise ArgumentError, "max_tokens must be between 1 and 4096, got: #{tokens}"
+        end
+
+      _ ->
+        raise ArgumentError, "max_tokens must be a positive integer"
+    end
   end
 end

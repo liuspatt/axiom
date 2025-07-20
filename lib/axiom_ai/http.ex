@@ -21,7 +21,10 @@ defmodule AxiomAi.Http do
     timeout = Keyword.get(opts, :timeout, 30_000)
     recv_timeout = Keyword.get(opts, :recv_timeout, 30_000)
 
-    case HTTPoison.post(url, json_payload, final_headers, timeout: timeout, recv_timeout: recv_timeout) do
+    case HTTPoison.post(url, json_payload, final_headers,
+           timeout: timeout,
+           recv_timeout: recv_timeout
+         ) do
       {:ok, response} ->
         {:ok,
          %{status_code: response.status_code, body: response.body, headers: response.headers}}
@@ -59,7 +62,8 @@ defmodule AxiomAi.Http do
   @doc """
   Performs a POST request with JSON payload and returns a stream for processing chunked responses.
   """
-  @spec post_stream(String.t(), map(), list(), keyword()) :: {:ok, Enumerable.t()} | {:error, any()}
+  @spec post_stream(String.t(), map(), list(), keyword()) ::
+          {:ok, Enumerable.t()} | {:error, any()}
   def post_stream(url, payload, headers \\ [], opts \\ []) do
     json_payload = Jason.encode!(payload)
 

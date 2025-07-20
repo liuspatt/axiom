@@ -33,6 +33,7 @@ defmodule AxiomAi.Provider.DeepSeek do
     ]
 
     http_opts = build_http_opts(config)
+
     case Http.post(endpoint, payload, headers, http_opts) do
       {:ok, %{status_code: 200, body: body}} ->
         parse_chat_response(body)
@@ -76,6 +77,7 @@ defmodule AxiomAi.Provider.DeepSeek do
     ]
 
     http_opts = build_http_opts(config)
+
     case Http.post(endpoint, payload, headers, http_opts) do
       {:ok, %{status_code: 200, body: body}} ->
         parse_completion_response(body)

@@ -248,73 +248,77 @@ defmodule AxiomAi.MagicDocTest do
   end
 
   describe "Magic Doc document processing" do
-
     test "test multiple environment switching - Magic Doc + Whisper simulation" do
       IO.puts("\n=== Testing multiple environment switching ===")
 
       # First test Magic Doc environment
       test_file = "test/fixtures/test_doc.docx"
-      
+
       unless File.exists?(test_file) do
         File.mkdir_p!(Path.dirname(test_file))
+
         content = """
         # Test Document
         This is a test document for the Magic Doc functionality.
         ## Section 1
         This is the first section of the test document.
         """
+
         File.write!(test_file, content)
       end
 
       # Test Magic Doc (first environment)
       magic_doc_options = [original_filename: "test_doc.docx"]
-      
+
       IO.puts("🔄 Testing Magic Doc environment (first)...")
+
       case analyze_document_with_magic_doc(test_file, magic_doc_options) do
         {:ok, result} ->
           IO.puts("✅ Magic Doc environment worked!")
           assert result.model == "magic-doc-parser"
+
         {:error, reason} ->
           IO.puts("⚠️ Magic Doc failed: #{reason}")
       end
 
       # Now test a different environment (simulated Whisper)
       IO.puts("🔄 Testing Whisper environment (second)...")
-      
-      whisper_client = AxiomAi.new(:local, %{
-        python_version: ">=3.9",
-        python_env_name: "whisper_env",
-        python_deps: [
-          "torch >= 2.1.0",
-          "transformers >= 4.45.0", 
-          "numpy >= 1.24.0"
-        ],
-        python_code: """
-        import sys
-        print("Whisper environment sys.path check:")
-        for p in sys.path:
-            if 'whisper_env' in p:
-                print(f"Found whisper_env path: {p}")
-                
-        def generate_response(model_path, prompt, max_tokens=1024, temperature=0.1):
-            return {
-                "transcription": "This is a simulated whisper transcription result",
-                "model": "whisper-large-v3-turbo",
-                "environment": "whisper_env"
-            }
-        """,
-        model_path: "whisper-large-v3-turbo",
-        temperature: 0.0,
-        max_tokens: 1024
-      })
+
+      whisper_client =
+        AxiomAi.new(:local, %{
+          python_version: ">=3.9",
+          python_env_name: "whisper_env",
+          python_deps: [
+            "torch >= 2.1.0",
+            "transformers >= 4.45.0",
+            "numpy >= 1.24.0"
+          ],
+          python_code: """
+          import sys
+          print("Whisper environment sys.path check:")
+          for p in sys.path:
+              if 'whisper_env' in p:
+                  print(f"Found whisper_env path: {p}")
+                  
+          def generate_response(model_path, prompt, max_tokens=1024, temperature=0.1):
+              return {
+                  "transcription": "This is a simulated whisper transcription result",
+                  "model": "whisper-large-v3-turbo",
+                  "environment": "whisper_env"
+              }
+          """,
+          model_path: "whisper-large-v3-turbo",
+          temperature: 0.0,
+          max_tokens: 1024
+        })
 
       whisper_prompt = "transcribe_audio('dummy_audio_path')"
-      
+
       case AxiomAi.chat(whisper_client, whisper_prompt) do
         {:ok, response} ->
           IO.puts("✅ Whisper environment worked!")
           IO.inspect(response, label: "Whisper response")
-          
+
         {:error, reason} ->
           IO.puts("⚠️ Whisper failed: #{inspect(reason)}")
           # Don't fail the test, just log the issue
@@ -322,10 +326,12 @@ defmodule AxiomAi.MagicDocTest do
 
       # Test switching back to Magic Doc
       IO.puts("🔄 Testing switch back to Magic Doc environment...")
+
       case analyze_document_with_magic_doc(test_file, magic_doc_options) do
         {:ok, result} ->
           IO.puts("✅ Magic Doc environment switch back worked!")
           assert result.model == "magic-doc-parser"
+
         {:error, reason} ->
           IO.puts("⚠️ Magic Doc switch back failed: #{reason}")
       end
@@ -335,80 +341,89 @@ defmodule AxiomAi.MagicDocTest do
 
     test "test external Korus scenario - real Whisper dependencies" do
       IO.puts("\n=== Testing external Korus scenario with real Whisper dependencies ===")
-      
+
       test_file = "test/fixtures/test_doc.docx"
-      
+
       # Test Magic Doc environment first (same as Korus)
       IO.puts("🔄 Testing Magic Doc environment (Korus scenario)...")
+
       magic_doc_options = [
         python_env_name: "magic_doc_env",
         python_deps: [
           "python-docx >= 1.2.0",
-          "python-pptx >= 1.0.0", 
+          "python-pptx >= 1.0.0",
           "PyMuPDF >= 1.26.0",
           "pathlib >= 1.0.1"
         ]
       ]
-      
+
       case analyze_document_with_magic_doc(test_file, magic_doc_options) do
         {:ok, magic_doc_result} ->
           IO.puts("✅ Magic Doc environment worked!")
           assert magic_doc_result.analysis =~ "Test Document"
-          
+
           # Test Whisper environment with REAL dependencies from Korus
           IO.puts("🔄 Testing Whisper environment (Korus real dependencies)...")
-          whisper_client = AxiomAi.new(:local, %{
-            python_version: ">=3.9",
-            python_env_name: "whisper_env",
-            python_deps: [
-              "torch >= 2.1.0", 
-              "transformers >= 4.45.0",
-              "numpy >= 1.24.0,<2.3.0"
-            ],
-            python_code: """
-            import torch
-            print(f"PyTorch version: {torch.__version__}")
-            print(f"CUDA available: {torch.cuda.is_available()}")
-            
-            def generate_response(model_path, prompt, max_tokens=256, temperature=0.0):
-                return {
-                    "environment": "whisper_env", 
-                    "torch_version": torch.__version__,
-                    "torch_available": True,
-                    "model": "whisper-large-v3-turbo",
-                    "transcription": "Real torch import successful"
-                }
-            """,
-            model_path: "whisper-large-v3-turbo"
-          })
-          
+
+          whisper_client =
+            AxiomAi.new(:local, %{
+              python_version: ">=3.9",
+              python_env_name: "whisper_env",
+              python_deps: [
+                "torch >= 2.1.0",
+                "transformers >= 4.45.0",
+                "numpy >= 1.24.0,<2.3.0"
+              ],
+              python_code: """
+              import torch
+              print(f"PyTorch version: {torch.__version__}")
+              print(f"CUDA available: {torch.cuda.is_available()}")
+
+              def generate_response(model_path, prompt, max_tokens=256, temperature=0.0):
+                  return {
+                      "environment": "whisper_env", 
+                      "torch_version": torch.__version__,
+                      "torch_available": True,
+                      "model": "whisper-large-v3-turbo",
+                      "transcription": "Real torch import successful"
+                  }
+              """,
+              model_path: "whisper-large-v3-turbo"
+            })
+
           # Test that torch imports correctly in Whisper environment
-          case AxiomAi.chat(whisper_client, "transcribe_audio('whisper-large-v3-turbo', 'test.wav')") do
+          case AxiomAi.chat(
+                 whisper_client,
+                 "transcribe_audio('whisper-large-v3-turbo', 'test.wav')"
+               ) do
             {:ok, whisper_response} ->
               IO.puts("✅ Whisper environment with real torch worked!")
               IO.inspect(whisper_response, label: "Whisper response")
-              
+
               # Test switch back to Magic Doc environment  
               IO.puts("🔄 Testing switch back to Magic Doc environment...")
+
               case analyze_document_with_magic_doc(test_file, magic_doc_options) do
                 {:ok, magic_doc_result2} ->
                   IO.puts("✅ Magic Doc environment switch back worked!")
                   assert magic_doc_result2.analysis =~ "Test Document"
                   IO.puts("✅ External Korus scenario test completed successfully")
-                  
+
                 {:error, reason} ->
                   IO.puts("⚠️ Magic Doc switch back failed: #{reason}")
               end
-              
+
             {:error, reason} ->
               IO.puts("❌ Whisper environment failed: #{inspect(reason)}")
               reason_str = inspect(reason)
+
               if String.contains?(reason_str, "torch") do
                 IO.puts("⚠️ This is the exact issue from Korus - torch module not found")
               end
+
               IO.puts("⚠️ This demonstrates the issue that needs to be fixed")
           end
-          
+
         {:error, reason} ->
           IO.puts("⚠️ Magic Doc failed: #{inspect(reason)}")
       end
@@ -416,88 +431,98 @@ defmodule AxiomAi.MagicDocTest do
 
     test "test reusing Whisper environment multiple times to reproduce torch docstring error" do
       IO.puts("\n=== Testing Whisper environment reuse ===")
-      
+
       # First create Magic Doc environment
-      magic_doc_client = AxiomAi.new(:local, %{
-        python_version: ">=3.9",
-        python_env_name: "magic_doc_env",
-        python_deps: ["python-docx >= 1.2.0", "PyMuPDF >= 1.26.0"],
-        python_code: """
-        import fitz
-        def generate_response(model_path, prompt, max_tokens=256, temperature=0.0):
-            return {"environment": "magic_doc_env", "module": "fitz", "working": True}
-        """,
-        model_path: "magic-doc"
-      })
-      
+      magic_doc_client =
+        AxiomAi.new(:local, %{
+          python_version: ">=3.9",
+          python_env_name: "magic_doc_env",
+          python_deps: ["python-docx >= 1.2.0", "PyMuPDF >= 1.26.0"],
+          python_code: """
+          import fitz
+          def generate_response(model_path, prompt, max_tokens=256, temperature=0.0):
+              return {"environment": "magic_doc_env", "module": "fitz", "working": True}
+          """,
+          model_path: "magic-doc"
+        })
+
       IO.puts("🔄 First Magic Doc call...")
+
       case AxiomAi.chat(magic_doc_client, "test") do
         {:ok, _} -> IO.puts("✅ Magic Doc working")
         {:error, reason} -> IO.puts("❌ Magic Doc failed: #{inspect(reason)}")
       end
-      
+
       # Create Whisper environment
-      whisper_client = AxiomAi.new(:local, %{
-        python_version: ">=3.9",
-        python_env_name: "whisper_env",
-        python_deps: ["torch >= 2.1.0", "numpy >= 1.24.0"],
-        python_code: """
-        import torch
-        import numpy as np
-        def generate_response(model_path, prompt, max_tokens=256, temperature=0.0):
-            return {
-                "environment": "whisper_env", 
-                "torch_version": torch.__version__,
-                "numpy_version": np.__version__,
-                "working": True
-            }
-        """,
-        model_path: "whisper"
-      })
-      
+      whisper_client =
+        AxiomAi.new(:local, %{
+          python_version: ">=3.9",
+          python_env_name: "whisper_env",
+          python_deps: ["torch >= 2.1.0", "numpy >= 1.24.0"],
+          python_code: """
+          import torch
+          import numpy as np
+          def generate_response(model_path, prompt, max_tokens=256, temperature=0.0):
+              return {
+                  "environment": "whisper_env", 
+                  "torch_version": torch.__version__,
+                  "numpy_version": np.__version__,
+                  "working": True
+              }
+          """,
+          model_path: "whisper"
+        })
+
       IO.puts("🔄 First Whisper call...")
+
       case AxiomAi.chat(whisper_client, "test") do
-        {:ok, response} -> 
+        {:ok, response} ->
           IO.puts("✅ First Whisper call successful")
           IO.inspect(response, label: "Whisper response")
-        {:error, reason} -> 
+
+        {:error, reason} ->
           IO.puts("❌ First Whisper call failed: #{inspect(reason)}")
       end
-      
+
       # Switch back to Magic Doc
       IO.puts("🔄 Second Magic Doc call...")
+
       case AxiomAi.chat(magic_doc_client, "test") do
         {:ok, _} -> IO.puts("✅ Second Magic Doc working")
         {:error, reason} -> IO.puts("❌ Second Magic Doc failed: #{inspect(reason)}")
       end
-      
+
       # This should reproduce the torch docstring error
       IO.puts("🔄 Second Whisper call (potential error)...")
+
       case AxiomAi.chat(whisper_client, "test") do
-        {:ok, response} -> 
+        {:ok, response} ->
           IO.puts("✅ Second Whisper call successful")
           IO.inspect(response, label: "Second Whisper response")
-        {:error, reason} -> 
+
+        {:error, reason} ->
           IO.puts("❌ Second Whisper call failed with torch docstring error:")
           IO.puts(inspect(reason))
+
           if String.contains?(inspect(reason), "docstring") do
             IO.puts("🎯 Reproduced the torch docstring error!")
           end
       end
-      
+
       # Try a third time to see if it gets worse
       IO.puts("🔄 Third Whisper call...")
+
       case AxiomAi.chat(whisper_client, "test") do
         {:ok, _} -> IO.puts("✅ Third Whisper call successful")
         {:error, reason} -> IO.puts("❌ Third Whisper call failed: #{inspect(reason)}")
       end
-      
+
       IO.puts("✅ Reuse test completed")
     end
 
     test "test aggressive torch import to reproduce docstring error" do
       IO.puts("\n=== Testing aggressive torch module usage ===")
-      
+
       # Create multiple clients that try to import torch in different ways
       clients = [
         AxiomAi.new(:local, %{
@@ -513,7 +538,7 @@ defmodule AxiomAi.MagicDocTest do
           model_path: "torch1"
         }),
         AxiomAi.new(:local, %{
-          python_env_name: "torch_test_2", 
+          python_env_name: "torch_test_2",
           python_deps: ["torch >= 2.1.0", "numpy >= 1.24.0"],
           python_code: """
           import torch
@@ -535,55 +560,67 @@ defmodule AxiomAi.MagicDocTest do
           model_path: "doc"
         })
       ]
-      
+
       # Call each client multiple times in rapid succession
       Enum.with_index(clients, 1)
       |> Enum.each(fn {client, index} ->
         IO.puts("🔄 Testing client #{index} - Round 1...")
+
         case AxiomAi.chat(client, "test") do
-          {:ok, response} -> 
+          {:ok, response} ->
             IO.puts("✅ Client #{index} Round 1 successful")
             IO.inspect(response, label: "Response #{index}")
-          {:error, reason} -> 
+
+          {:error, reason} ->
             IO.puts("❌ Client #{index} Round 1 failed: #{inspect(reason)}")
+
             if String.contains?(inspect(reason), "docstring") do
               IO.puts("🎯 Found docstring error in client #{index}!")
             end
         end
       end)
-      
+
       # Second round - this might trigger the error
       IO.puts("\n--- Second Round ---")
+
       Enum.with_index(clients, 1)
       |> Enum.each(fn {client, index} ->
         IO.puts("🔄 Testing client #{index} - Round 2...")
+
         case AxiomAi.chat(client, "test") do
-          {:ok, _response} -> 
+          {:ok, _response} ->
             IO.puts("✅ Client #{index} Round 2 successful")
-          {:error, reason} -> 
+
+          {:error, reason} ->
             IO.puts("❌ Client #{index} Round 2 failed: #{inspect(reason)}")
+
             if String.contains?(inspect(reason), "docstring") do
               IO.puts("🎯 Found docstring error in client #{index} Round 2!")
             end
         end
       end)
-      
+
       # Third round - mixing the order
       IO.puts("\n--- Third Round (Mixed Order) ---")
+
       [clients |> Enum.at(1), clients |> Enum.at(2), clients |> Enum.at(0)]
       |> Enum.with_index(1)
       |> Enum.each(fn {client, index} ->
         IO.puts("🔄 Testing mixed client #{index} - Round 3...")
+
         case AxiomAi.chat(client, "test") do
-          {:ok, _} -> IO.puts("✅ Mixed client #{index} Round 3 successful")
-          {:error, reason} -> 
+          {:ok, _} ->
+            IO.puts("✅ Mixed client #{index} Round 3 successful")
+
+          {:error, reason} ->
             IO.puts("❌ Mixed client #{index} Round 3 failed: #{inspect(reason)}")
+
             if String.contains?(inspect(reason), "docstring") do
               IO.puts("🎯 Found docstring error in mixed client #{index}!")
             end
         end
       end)
-      
+
       IO.puts("✅ Aggressive torch test completed")
     end
 
