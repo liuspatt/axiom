@@ -250,12 +250,21 @@ defmodule AxiomAi.Provider.Local do
          mode,
          category
        ) do
-    # Get python_version and env_name from config
+    # Get python_version, env_name, uv_extra_index_url, and build_system_requires from config
     python_version = Map.get(config, :python_version, ">=3.9")
     python_env_name = Map.get(config, :python_env_name, "default_env")
+    uv_extra_index_url = Map.get(config, :uv_extra_index_url, [])
+    build_system_requires = Map.get(config, :build_system_requires, ["setuptools", "wheel"])
 
     # Ensure PythonInterface is properly initialized for this client
-    case ensure_python_interface_ready(python_deps, category, python_version, python_env_name) do
+    case ensure_python_interface_ready(
+           python_deps,
+           category,
+           python_version,
+           python_env_name,
+           uv_extra_index_url,
+           build_system_requires
+         ) do
       :ok ->
         # Execute inference using the python_interface
         case PythonInterface.execute_inference(model_path, message, python_code, config, category) do
@@ -275,7 +284,14 @@ defmodule AxiomAi.Provider.Local do
   end
 
   # Ensure PythonInterface is ready with proper initialization for each client
-  defp ensure_python_interface_ready(python_deps, category, python_version, python_env_name) do
+  defp ensure_python_interface_ready(
+         python_deps,
+         category,
+         python_version,
+         python_env_name,
+         uv_extra_index_url \\ [],
+         build_system_requires \\ ["setuptools", "wheel"]
+       ) do
     # PythonInterface.Supervisor should be started by AxiomAi.Application
     supervisor_pid = Process.whereis(Elixir.PythonInterface.Supervisor)
     IO.puts("PythonInterface.Supervisor pid: #{inspect(supervisor_pid)}")
@@ -296,7 +312,9 @@ defmodule AxiomAi.Provider.Local do
               python_deps,
               category,
               python_version,
-              python_env_name
+              python_env_name,
+              uv_extra_index_url,
+              build_system_requires
             )
 
           {:error, {:already_started, _pid}} ->
@@ -306,7 +324,9 @@ defmodule AxiomAi.Provider.Local do
               python_deps,
               category,
               python_version,
-              python_env_name
+              python_env_name,
+              uv_extra_index_url,
+              build_system_requires
             )
 
           {:error, reason} ->
@@ -322,7 +342,9 @@ defmodule AxiomAi.Provider.Local do
           python_deps,
           category,
           python_version,
-          python_env_name
+          python_env_name,
+          uv_extra_index_url,
+          build_system_requires
         )
     end
   end
@@ -331,7 +353,9 @@ defmodule AxiomAi.Provider.Local do
          python_deps,
          category,
          python_version,
-         python_env_name
+         python_env_name,
+         uv_extra_index_url \\ [],
+         build_system_requires \\ ["setuptools", "wheel"]
        ) do
     # Check if Python interpreter is already initialized
     init_key = String.to_atom("python_initialized_#{python_env_name}")
@@ -346,19 +370,34 @@ defmodule AxiomAi.Provider.Local do
         # First time initialization
         IO.puts("Initializing new Python environment: #{python_env_name}")
 
-        case initialize_python_environment(python_deps, category, python_version, python_env_name) do
+        case initialize_python_environment(
+               python_deps,
+               category,
+               python_version,
+               python_env_name,
+               uv_extra_index_url,
+               build_system_requires
+             ) do
           :ok ->
             # Mark this environment as initialized
             Process.put(init_key, true)
             # Store environment info for later switching including the actual TOML used
-            toml_used = generate_toml_config(python_deps, python_version, python_env_name)
+            toml_used =
+              generate_toml_config(
+                python_deps,
+                python_version,
+                python_env_name,
+                uv_extra_index_url,
+                build_system_requires
+              )
 
             env_info = %{
               python_deps: python_deps,
               python_version: python_version,
               python_env_name: python_env_name,
               category: category,
-              toml_content: toml_used
+              toml_content: toml_used,
+              uv_extra_index_url: uv_extra_index_url
             }
 
             Process.put(String.to_atom("env_info_#{python_env_name}"), env_info)
@@ -384,7 +423,8 @@ defmodule AxiomAi.Provider.Local do
           generate_toml_config(
             env_info.python_deps,
             env_info.python_version,
-            env_info.python_env_name
+            env_info.python_env_name,
+            Map.get(env_info, :uv_indexes)
           )
 
       cache_id =
@@ -509,7 +549,14 @@ defmodule AxiomAi.Provider.Local do
     Path.join([base_dir, version, "uv", "0.5.21"])
   end
 
-  defp initialize_python_environment(python_deps, category, python_version, python_env_name) do
+  defp initialize_python_environment(
+         python_deps,
+         category,
+         python_version,
+         python_env_name,
+         uv_extra_index_url \\ [],
+         build_system_requires \\ ["setuptools", "wheel"]
+       ) do
     IO.puts("Initializing Python environment for category: #{category}")
     IO.puts("Python dependencies: #{inspect(python_deps)}")
     IO.puts("Python version: #{python_version}")
@@ -523,20 +570,34 @@ defmodule AxiomAi.Provider.Local do
         # First environment - do full initialization
         IO.puts("First Python environment initialization")
 
-        case initialize_with_uv_init(python_deps, python_version, python_env_name) do
+        case initialize_with_uv_init(
+               python_deps,
+               python_version,
+               python_env_name,
+               uv_extra_index_url,
+               build_system_requires
+             ) do
           :ok ->
             Process.put(global_init_key, python_env_name)
             IO.puts("✅ Python environment initialized successfully")
 
             # Store environment info for switching including the actual TOML used
-            toml_used = generate_toml_config(python_deps, python_version, python_env_name)
+            toml_used =
+              generate_toml_config(
+                python_deps,
+                python_version,
+                python_env_name,
+                uv_extra_index_url,
+                build_system_requires
+              )
 
             env_info = %{
               python_deps: python_deps,
               python_version: python_version,
               python_env_name: python_env_name,
               category: category,
-              toml_content: toml_used
+              toml_content: toml_used,
+              uv_extra_index_url: uv_extra_index_url
             }
 
             Process.put(String.to_atom("env_info_#{python_env_name}"), env_info)
@@ -554,7 +615,14 @@ defmodule AxiomAi.Provider.Local do
                 IO.puts("✅ PythonInterface.init_environment succeeded")
 
                 # Store environment info for switching including the actual TOML used
-                toml_used = generate_toml_config(python_deps, python_version, python_env_name)
+                toml_used =
+                  generate_toml_config(
+                    python_deps,
+                    python_version,
+                    python_env_name,
+                    uv_extra_index_url,
+                    build_system_requires
+                  )
 
                 env_info = %{
                   python_deps: python_deps,
@@ -582,17 +650,31 @@ defmodule AxiomAi.Provider.Local do
           "Setting up additional Python environment (interpreter already initialized with: #{first_env_name})"
         )
 
-        case setup_additional_environment(python_deps, python_version, python_env_name) do
+        case setup_additional_environment(
+               python_deps,
+               python_version,
+               python_env_name,
+               uv_extra_index_url,
+               build_system_requires
+             ) do
           :ok ->
             # Store environment info for switching even for additional environments including the actual TOML used
-            toml_used = generate_toml_config(python_deps, python_version, python_env_name)
+            toml_used =
+              generate_toml_config(
+                python_deps,
+                python_version,
+                python_env_name,
+                uv_extra_index_url,
+                build_system_requires
+              )
 
             env_info = %{
               python_deps: python_deps,
               python_version: python_version,
               python_env_name: python_env_name,
               category: category,
-              toml_content: toml_used
+              toml_content: toml_used,
+              uv_extra_index_url: uv_extra_index_url
             }
 
             Process.put(String.to_atom("env_info_#{python_env_name}"), env_info)
@@ -615,7 +697,13 @@ defmodule AxiomAi.Provider.Local do
     end
   end
 
-  defp setup_additional_environment(python_deps, python_version, python_env_name) do
+  defp setup_additional_environment(
+         python_deps,
+         python_version,
+         python_env_name,
+         uv_extra_index_url \\ [],
+         build_system_requires \\ ["setuptools", "wheel"]
+       ) do
     IO.puts("Setting up additional environment without reinitializing interpreter")
 
     # Use uv to prepare the dependencies but don't initialize the interpreter
@@ -623,7 +711,7 @@ defmodule AxiomAi.Provider.Local do
       # Call uv_init which will create the virtual environment and dependencies
       # but won't reinitialize the Python interpreter since it's already running
       Elixir.PythonInterface.uv_init(
-        generate_toml_config(python_deps, python_version, python_env_name),
+        generate_toml_config(python_deps, python_version, python_env_name, uv_extra_index_url, build_system_requires),
         []
       )
 
@@ -642,12 +730,46 @@ defmodule AxiomAi.Provider.Local do
     end
   end
 
-  defp generate_toml_config(python_deps, python_version, python_env_name)
+  defp generate_toml_config(
+         python_deps,
+         python_version,
+         python_env_name,
+         uv_extra_index_url \\ [],
+         build_system_requires \\ ["setuptools", "wheel"]
+       )
        when is_list(python_deps) do
     deps_string =
       python_deps
       |> Enum.map(fn dep -> "    \"#{dep}\"" end)
       |> Enum.join(",\n")
+
+    # Generate UV tool configuration with extra-index-url if provided
+    uv_config =
+      case uv_extra_index_url do
+        # If list of URLs provided
+        extra_urls when is_list(extra_urls) and length(extra_urls) > 0 ->
+          extra_urls_string =
+            extra_urls
+            |> Enum.map(fn url -> "\"#{url}\"" end)
+            |> Enum.join(", ")
+
+          """
+
+          [tool.uv]
+          index-url = "https://pypi.org/simple"
+          extra-index-url = [#{extra_urls_string}]
+          index-strategy = "unsafe-best-match"
+          """
+
+        _ ->
+          ""
+      end
+
+    # Generate build-system requires string
+    build_requires_string =
+      build_system_requires
+      |> Enum.map(fn req -> "\"#{req}\"" end)
+      |> Enum.join(", ")
 
     # Generate clean TOML without extra metadata to ensure consistent cache IDs
     """
@@ -660,33 +782,22 @@ defmodule AxiomAi.Provider.Local do
     ]
 
     [build-system]
-    requires = ["setuptools", "wheel"]
-    build-backend = "setuptools.build_meta"
+    requires = [#{build_requires_string}]
+    build-backend = "setuptools.build_meta"#{uv_config}
     """
   end
 
-  defp initialize_with_uv_init(python_deps, python_version, python_env_name)
+  defp initialize_with_uv_init(
+         python_deps,
+         python_version,
+         python_env_name,
+         uv_extra_index_url \\ [],
+         build_system_requires \\ ["setuptools", "wheel"]
+       )
        when is_list(python_deps) do
-    # Convert list of dependencies to TOML format - fix TOML syntax
-    deps_string =
-      python_deps
-      # Remove trailing comma
-      |> Enum.map(fn dep -> "    \"#{dep}\"" end)
-      |> Enum.join(",\n")
-
-    toml_config = """
-    [project]
-    name = "#{python_env_name}"
-    version = "0.1.0"
-    requires-python = "#{python_version}"
-    dependencies = [
-    #{deps_string}
-    ]
-
-    [build-system]
-    requires = ["setuptools", "wheel"]
-    build-backend = "setuptools.build_meta"
-    """
+    # Use generate_toml_config to create the TOML configuration
+    toml_config =
+      generate_toml_config(python_deps, python_version, python_env_name, uv_extra_index_url, build_system_requires)
 
     IO.puts("Initializing Python with TOML config for environment '#{python_env_name}':")
     IO.puts(toml_config)
@@ -714,15 +825,14 @@ defmodule AxiomAi.Provider.Local do
           )
 
           # Store environment info for switching including the actual TOML used
-          toml_used = generate_toml_config(python_deps, python_version, python_env_name)
-
           env_info = %{
             python_deps: python_deps,
             python_version: python_version,
             python_env_name: python_env_name,
             # Default category since we don't have it here
             category: :text_generation,
-            toml_content: toml_used
+            toml_content: toml_config,
+            uv_extra_index_url: uv_extra_index_url
           }
 
           Process.put(String.to_atom("env_info_#{python_env_name}"), env_info)
@@ -889,12 +999,5 @@ defmodule AxiomAi.Provider.Local do
   @impl true
   def stream(_config, _system_prompt, _history, _prompt) do
     {:error, :not_implemented}
-  end
-
-  defp build_http_opts(config) do
-    [
-      timeout: Map.get(config, :timeout, 30_000),
-      recv_timeout: Map.get(config, :recv_timeout, 30_000)
-    ]
   end
 end
