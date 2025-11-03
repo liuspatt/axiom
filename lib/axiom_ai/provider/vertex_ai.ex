@@ -149,11 +149,15 @@ defmodule AxiomAi.Provider.VertexAi do
 
   @impl true
   def stream(config, system_prompt, history, prompt) do
+    stream(config, system_prompt, history, prompt, [])
+  end
+
+  def stream(config, system_prompt, history, prompt, files) do
     %{project_id: project_id, region: region, model: model} = config
 
     endpoint = build_endpoint(project_id, region, model, "streamGenerateContent")
 
-    contents = build_contents(system_prompt, history, prompt)
+    contents = build_contents(system_prompt, history, prompt, files)
 
     payload = %{
       contents: contents,
@@ -239,6 +243,10 @@ defmodule AxiomAi.Provider.VertexAi do
   end
 
   defp build_contents(system_prompt, history, prompt) do
+    build_contents(system_prompt, history, prompt, [])
+  end
+
+  defp build_contents(system_prompt, history, prompt, files) do
     system_message = %{
       role: "user",
       parts: [%{text: system_prompt}]
@@ -263,9 +271,23 @@ defmodule AxiomAi.Provider.VertexAi do
           %{role: "user", parts: [%{text: message}]}
       end)
 
+    # Build parts for user message with files
+    file_parts =
+      Enum.map(files, fn file ->
+        %{
+          fileData: %{
+            mimeType: file.mime_type,
+            fileUri: file.file_uri
+          }
+        }
+      end)
+
+    text_part = %{text: prompt}
+    user_parts = file_parts ++ [text_part]
+
     user_message = %{
       role: "user",
-      parts: [%{text: prompt}]
+      parts: user_parts
     }
 
     [system_message, model_system_response] ++ history_messages ++ [user_message]

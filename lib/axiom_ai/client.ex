@@ -51,4 +51,20 @@ defmodule AxiomAi.Client do
   def stream(%__MODULE__{provider: provider, config: config}, system_prompt, history, prompt) do
     Provider.stream(provider, config, system_prompt, history, prompt)
   end
+
+  @doc """
+  Streams a chat message with system prompt, history, user prompt, and files using the configured provider.
+  Files should be a list of maps with :mime_type and :file_uri keys.
+  """
+  @spec stream(t(), String.t(), list(), String.t(), list()) ::
+          {:ok, Enumerable.t()} | {:error, any()}
+  def stream(
+        %__MODULE__{provider: provider, config: config},
+        system_prompt,
+        history,
+        prompt,
+        files
+      ) do
+    Provider.stream(provider, config, system_prompt, history, prompt, files)
+  end
 end

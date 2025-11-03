@@ -711,7 +711,13 @@ defmodule AxiomAi.Provider.Local do
       # Call uv_init which will create the virtual environment and dependencies
       # but won't reinitialize the Python interpreter since it's already running
       Elixir.PythonInterface.uv_init(
-        generate_toml_config(python_deps, python_version, python_env_name, uv_extra_index_url, build_system_requires),
+        generate_toml_config(
+          python_deps,
+          python_version,
+          python_env_name,
+          uv_extra_index_url,
+          build_system_requires
+        ),
         []
       )
 
@@ -797,7 +803,13 @@ defmodule AxiomAi.Provider.Local do
        when is_list(python_deps) do
     # Use generate_toml_config to create the TOML configuration
     toml_config =
-      generate_toml_config(python_deps, python_version, python_env_name, uv_extra_index_url, build_system_requires)
+      generate_toml_config(
+        python_deps,
+        python_version,
+        python_env_name,
+        uv_extra_index_url,
+        build_system_requires
+      )
 
     IO.puts("Initializing Python with TOML config for environment '#{python_env_name}':")
     IO.puts(toml_config)

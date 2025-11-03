@@ -65,6 +65,16 @@ defmodule AxiomAi.Provider do
     provider_module.stream(config, system_prompt, history, prompt)
   end
 
+  @doc """
+  Dispatches streaming chat requests with system prompt, history, user prompt, and files to the appropriate provider.
+  """
+  @spec stream(atom(), map(), String.t(), list(), String.t(), list()) ::
+          {:ok, any()} | {:error, any()}
+  def stream(provider, config, system_prompt, history, prompt, files) do
+    provider_module = get_provider_module(provider)
+    provider_module.stream(config, system_prompt, history, prompt, files)
+  end
+
   defp get_provider_module(:vertex_ai), do: AxiomAi.Provider.VertexAi
   defp get_provider_module(:openai), do: AxiomAi.Provider.OpenAi
   defp get_provider_module(:anthropic), do: AxiomAi.Provider.Anthropic
