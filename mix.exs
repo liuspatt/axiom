@@ -1,7 +1,7 @@
 defmodule AxiomAi.MixProject do
   use Mix.Project
 
-  @version "0.1.10"
+  @version "0.1.11"
   @source_url "https://github.com/liuspatt/axiom-ai"
 
   def project do

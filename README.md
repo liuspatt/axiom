@@ -16,7 +16,7 @@ Add `axiom_ai` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:axiom_ai, "~> 0.1.8"}
+    {:axiom_ai, "~> 0.1.11"}
   ]
 end
 ```
@@ -135,3 +135,6 @@ client = AxiomAi.new(:local, %{
 ## Acknowledgements
 
 Thank you to Cocoa Xu (@cocoa-xu) for building the first prototype of embedded Python ([source](https://github.com/livebook-dev/pythonx)).
+
+export HEX_API_KEY=ea4811c4f8cc28280f561c50a49b80a2
+mix hex.publish --yes
