@@ -171,7 +171,13 @@ defmodule PythonInterface.Uv do
   end
 
   defp uv_path() do
-    Path.join([cache_dir(), "bin", "uv"])
+    bin =
+      case :os.type() do
+        {:win32, _} -> "uv.exe"
+        _ -> "uv"
+      end
+
+    Path.join([cache_dir(), "bin", bin])
   end
 
   @version Mix.Project.config()[:version]

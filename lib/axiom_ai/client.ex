@@ -53,6 +53,22 @@ defmodule AxiomAi.Client do
   end
 
   @doc """
+  Generates an embedding for a single text.
+  """
+  @spec embed(t(), String.t(), map()) :: {:ok, map()} | {:error, any()}
+  def embed(%__MODULE__{provider: provider, config: config}, text, opts \\ %{}) do
+    Provider.embed(provider, config, text, opts)
+  end
+
+  @doc """
+  Generates embeddings for multiple texts in a single call.
+  """
+  @spec batch_embed(t(), list(), map()) :: {:ok, map()} | {:error, any()}
+  def batch_embed(%__MODULE__{provider: provider, config: config}, texts, opts \\ %{}) do
+    Provider.batch_embed(provider, config, texts, opts)
+  end
+
+  @doc """
   Streams a chat message with system prompt, history, user prompt, and files using the configured provider.
   Files should be a list of maps with :mime_type and :file_uri keys.
   """

@@ -3,6 +3,8 @@ defmodule AxiomAi.Auth do
   Authentication utilities for various AI providers.
   """
 
+  require Logger
+
   @doc """
   Gets an access token for Google Cloud Platform authentication.
 
@@ -16,27 +18,49 @@ defmodule AxiomAi.Auth do
   """
   @spec get_gcp_token(map()) :: {:ok, String.t()} | {:error, any()}
   def get_gcp_token(config) do
-    cond do
+    Logger.info("🔑 [AXIOM AUTH] get_gcp_token called")
+    Logger.info("🔑 [AXIOM AUTH] config keys: #{inspect(Map.keys(config))}")
+
+    result = cond do
       Map.has_key?(config, :access_token) ->
+        Logger.info("🔑 [AXIOM AUTH] Using provided access_token")
         {:ok, config.access_token}
 
       Map.has_key?(config, :service_account_key) ->
+        Logger.info("🔑 [AXIOM AUTH] Using service_account_key")
         get_service_account_token(config.service_account_key)
 
       Map.has_key?(config, :service_account_path) ->
+        Logger.info("🔑 [AXIOM AUTH] Using service_account_path: #{config.service_account_path}")
         case File.read(config.service_account_path) do
           {:ok, content} ->
+            Logger.info("🔑 [AXIOM AUTH] Service account file read successfully")
             case Jason.decode(content) do
-              {:ok, key_data} -> get_service_account_token(key_data)
-              {:error, reason} -> {:error, {:json_decode_error, reason}}
+              {:ok, key_data} ->
+                Logger.info("🔑 [AXIOM AUTH] Service account JSON decoded, project_id: #{key_data["project_id"]}")
+                get_service_account_token(key_data)
+              {:error, reason} ->
+                Logger.error("🔑 [AXIOM AUTH] ❌ JSON decode error: #{inspect(reason)}")
+                {:error, {:json_decode_error, reason}}
             end
 
           {:error, reason} ->
+            Logger.error("🔑 [AXIOM AUTH] ❌ File read error: #{inspect(reason)}")
             {:error, {:file_read_error, reason}}
         end
 
       true ->
+        Logger.info("🔑 [AXIOM AUTH] Using application default credentials")
         get_application_default_credentials()
+    end
+
+    case result do
+      {:ok, token} ->
+        Logger.info("🔑 [AXIOM AUTH] ✅ Token obtained successfully (length: #{String.length(token)})")
+        {:ok, token}
+      {:error, reason} ->
+        Logger.error("🔑 [AXIOM AUTH] ❌ Failed to get token: #{inspect(reason)}")
+        {:error, reason}
     end
   end
 

@@ -5,6 +5,8 @@ defmodule AxiomAi.Provider.VertexAi do
 
   @behaviour AxiomAi.Provider
 
+  require Logger
+
   alias AxiomAi.Http
 
   @base_url "https://us-central1-aiplatform.googleapis.com/v1"
@@ -49,7 +51,13 @@ defmodule AxiomAi.Provider.VertexAi do
   def chat(config, system_prompt, history, prompt) do
     %{project_id: project_id, region: region, model: model} = config
 
+    Logger.info("🤖 [AXIOM VERTEX] chat/4 called - project: #{project_id}, region: #{region}, model: #{model}")
+    Logger.info("🤖 [AXIOM VERTEX] system_prompt length: #{String.length(system_prompt || "")}")
+    Logger.info("🤖 [AXIOM VERTEX] history length: #{length(history)}")
+    Logger.info("🤖 [AXIOM VERTEX] prompt length: #{String.length(prompt || "")}")
+
     endpoint = build_endpoint(project_id, region, model, "generateContent")
+    Logger.info("🤖 [AXIOM VERTEX] endpoint: #{endpoint}")
 
     contents = build_contents(system_prompt, history, prompt)
 
@@ -65,15 +73,20 @@ defmodule AxiomAi.Provider.VertexAi do
 
     headers = build_headers(config)
     http_opts = build_http_opts(config)
+    Logger.info("🤖 [AXIOM VERTEX] http_opts: #{inspect(http_opts)}")
 
+    Logger.info("🤖 [AXIOM VERTEX] Making HTTP POST request...")
     case Http.post(endpoint, payload, headers, http_opts) do
       {:ok, %{status_code: 200, body: body}} ->
+        Logger.info("🤖 [AXIOM VERTEX] ✅ HTTP 200 OK - body length: #{String.length(body || "")}")
         parse_response(body)
 
       {:ok, %{status_code: status_code, body: body}} ->
+        Logger.error("🤖 [AXIOM VERTEX] ❌ HTTP #{status_code} - body: #{String.slice(body || "", 0, 500)}")
         {:error, %{status_code: status_code, message: body}}
 
       {:error, reason} ->
+        Logger.error("🤖 [AXIOM VERTEX] ❌ HTTP Error: #{inspect(reason)}")
         {:error, reason}
     end
   end
@@ -155,7 +168,14 @@ defmodule AxiomAi.Provider.VertexAi do
   def stream(config, system_prompt, history, prompt, files) do
     %{project_id: project_id, region: region, model: model} = config
 
+    Logger.info("🌊 [AXIOM VERTEX STREAM] stream/5 called - project: #{project_id}, region: #{region}, model: #{model}")
+    Logger.info("🌊 [AXIOM VERTEX STREAM] system_prompt length: #{String.length(system_prompt || "")}")
+    Logger.info("🌊 [AXIOM VERTEX STREAM] history length: #{length(history)}")
+    Logger.info("🌊 [AXIOM VERTEX STREAM] prompt length: #{String.length(prompt || "")}")
+    Logger.info("🌊 [AXIOM VERTEX STREAM] files count: #{length(files)}")
+
     endpoint = build_endpoint(project_id, region, model, "streamGenerateContent")
+    Logger.info("🌊 [AXIOM VERTEX STREAM] endpoint: #{endpoint}")
 
     contents = build_contents(system_prompt, history, prompt, files)
 
@@ -171,13 +191,128 @@ defmodule AxiomAi.Provider.VertexAi do
 
     headers = build_headers(config)
     http_opts = build_http_opts(config)
+    Logger.info("🌊 [AXIOM VERTEX STREAM] http_opts: #{inspect(http_opts)}")
 
+    Logger.info("🌊 [AXIOM VERTEX STREAM] Making HTTP POST stream request...")
     case Http.post_stream(endpoint, payload, headers, http_opts) do
       {:ok, response} ->
+        Logger.info("🌊 [AXIOM VERTEX STREAM] ✅ Stream started successfully")
         {:ok, response}
 
       {:error, reason} ->
+        Logger.error("🌊 [AXIOM VERTEX STREAM] ❌ Stream Error: #{inspect(reason)}")
         {:error, reason}
+    end
+  end
+
+  @doc """
+  Generate an embedding for a single text using Vertex AI.
+
+  ## Options
+    - `:model` - Embedding model (default: "text-embedding-005")
+    - `:task_type` - One of "RETRIEVAL_DOCUMENT", "RETRIEVAL_QUERY", "SEMANTIC_SIMILARITY", etc.
+    - `:dimensions` - Output dimensionality (default: 768)
+
+  Returns `{:ok, %{embedding: [float()]}}` or `{:error, reason}`.
+  """
+  @impl true
+  def embed(config, text, opts \\ %{}) do
+    %{project_id: project_id, region: region} = config
+    model = Map.get(opts, :model, Map.get(config, :embedding_model, "text-embedding-005"))
+    task_type = Map.get(opts, :task_type, "RETRIEVAL_DOCUMENT")
+    dimensions = Map.get(opts, :dimensions, 768)
+
+    endpoint = build_endpoint(project_id, region, model, "predict")
+    headers = build_headers(config)
+    http_opts = build_http_opts(config)
+
+    payload = %{
+      instances: [%{content: text, task_type: task_type}],
+      parameters: %{outputDimensionality: dimensions}
+    }
+
+    case Http.post(endpoint, payload, headers, http_opts) do
+      {:ok, %{status_code: 200, body: body}} ->
+        parse_embedding_response(body)
+
+      {:ok, %{status_code: status_code, body: body}} ->
+        {:error, %{status_code: status_code, message: body}}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  @doc """
+  Generate embeddings for multiple texts in a single Vertex AI call.
+
+  Same options as `embed/3`. Returns `{:ok, %{embeddings: [[float()]]}}`.
+  """
+  @impl true
+  def batch_embed(config, texts, opts \\ %{}) when is_list(texts) do
+    %{project_id: project_id, region: region} = config
+    model = Map.get(opts, :model, Map.get(config, :embedding_model, "text-embedding-005"))
+    task_type = Map.get(opts, :task_type, "RETRIEVAL_DOCUMENT")
+    dimensions = Map.get(opts, :dimensions, 768)
+
+    endpoint = build_endpoint(project_id, region, model, "predict")
+    headers = build_headers(config)
+    http_opts = build_http_opts(config)
+
+    instances = Enum.map(texts, fn text -> %{content: text, task_type: task_type} end)
+
+    payload = %{
+      instances: instances,
+      parameters: %{outputDimensionality: dimensions}
+    }
+
+    case Http.post(endpoint, payload, headers, http_opts) do
+      {:ok, %{status_code: 200, body: body}} ->
+        parse_batch_embedding_response(body)
+
+      {:ok, %{status_code: status_code, body: body}} ->
+        {:error, %{status_code: status_code, message: body}}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp parse_embedding_response(body) do
+    case Jason.decode(body) do
+      {:ok, %{"predictions" => [%{"embeddings" => %{"values" => values}} | _]}} ->
+        {:ok, %{embedding: values}}
+
+      {:ok, %{"error" => error}} ->
+        {:error, error}
+
+      {:ok, response} ->
+        {:error, %{message: "Unexpected embedding response", response: response}}
+
+      {:error, reason} ->
+        {:error, %{message: "JSON decode error", reason: reason}}
+    end
+  end
+
+  defp parse_batch_embedding_response(body) do
+    case Jason.decode(body) do
+      {:ok, %{"predictions" => predictions}} when is_list(predictions) ->
+        embeddings =
+          Enum.map(predictions, fn
+            %{"embeddings" => %{"values" => values}} -> values
+            _ -> nil
+          end)
+
+        {:ok, %{embeddings: embeddings}}
+
+      {:ok, %{"error" => error}} ->
+        {:error, error}
+
+      {:ok, response} ->
+        {:error, %{message: "Unexpected batch embedding response", response: response}}
+
+      {:error, reason} ->
+        {:error, %{message: "JSON decode error", reason: reason}}
     end
   end
 

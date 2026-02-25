@@ -19,6 +19,12 @@ defmodule AxiomAi.Provider do
               history :: list(),
               prompt :: String.t()
             ) :: {:ok, any()} | {:error, any()}
+  @callback embed(config :: map(), text :: String.t(), opts :: map()) ::
+              {:ok, map()} | {:error, any()}
+  @callback batch_embed(config :: map(), texts :: list(), opts :: map()) ::
+              {:ok, map()} | {:error, any()}
+
+  @optional_callbacks [embed: 3, batch_embed: 3]
 
   @doc """
   Dispatches chat requests to the appropriate provider.
@@ -73,6 +79,24 @@ defmodule AxiomAi.Provider do
   def stream(provider, config, system_prompt, history, prompt, files) do
     provider_module = get_provider_module(provider)
     provider_module.stream(config, system_prompt, history, prompt, files)
+  end
+
+  @doc """
+  Dispatches embedding requests to the appropriate provider.
+  """
+  @spec embed(atom(), map(), String.t(), map()) :: {:ok, map()} | {:error, any()}
+  def embed(provider, config, text, opts \\ %{}) do
+    provider_module = get_provider_module(provider)
+    provider_module.embed(config, text, opts)
+  end
+
+  @doc """
+  Dispatches batch embedding requests to the appropriate provider.
+  """
+  @spec batch_embed(atom(), map(), list(), map()) :: {:ok, map()} | {:error, any()}
+  def batch_embed(provider, config, texts, opts \\ %{}) do
+    provider_module = get_provider_module(provider)
+    provider_module.batch_embed(config, texts, opts)
   end
 
   defp get_provider_module(:vertex_ai), do: AxiomAi.Provider.VertexAi

@@ -147,4 +147,39 @@ defmodule AxiomAi do
       when is_binary(system_prompt) and is_list(history) and is_binary(prompt) do
     Client.stream(client, system_prompt, history, prompt)
   end
+
+  @doc """
+  Generates an embedding vector for a single text.
+
+  ## Options
+    - `:model` - Embedding model (default depends on provider)
+    - `:task_type` - e.g. "RETRIEVAL_DOCUMENT", "RETRIEVAL_QUERY"
+    - `:dimensions` - Output dimensionality (default: 768)
+
+  ## Examples
+
+      iex> client = AxiomAi.new(:vertex_ai, %{project_id: "my-project"})
+      iex> {:ok, %{embedding: values}} = AxiomAi.embed(client, "What is AI?")
+      iex> length(values)
+      768
+  """
+  @spec embed(client(), String.t(), map()) :: response()
+  def embed(%Client{} = client, text, opts \\ %{}) when is_binary(text) do
+    Client.embed(client, text, opts)
+  end
+
+  @doc """
+  Generates embeddings for multiple texts in a single API call.
+
+  ## Examples
+
+      iex> client = AxiomAi.new(:vertex_ai, %{project_id: "my-project"})
+      iex> {:ok, %{embeddings: vectors}} = AxiomAi.batch_embed(client, ["text 1", "text 2"])
+      iex> length(vectors)
+      2
+  """
+  @spec batch_embed(client(), list(), map()) :: response()
+  def batch_embed(%Client{} = client, texts, opts \\ %{}) when is_list(texts) do
+    Client.batch_embed(client, texts, opts)
+  end
 end

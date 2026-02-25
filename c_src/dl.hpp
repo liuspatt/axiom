@@ -24,7 +24,7 @@ inline bool close_library(LibraryHandle lib) { return FreeLibrary(lib); }
 inline std::string error() {
   auto code = GetLastError();
   if (code == 0) {
-    return nullptr;
+    return std::string();
   }
 
   return "code " + std::to_string(code);
