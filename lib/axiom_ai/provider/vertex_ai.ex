@@ -61,15 +61,12 @@ defmodule AxiomAi.Provider.VertexAi do
 
     contents = build_contents(system_prompt, history, prompt)
 
-    payload = %{
-      contents: contents,
-      generationConfig: %{
-        temperature: Map.get(config, :temperature, 0.7),
-        maxOutputTokens: Map.get(config, :max_tokens, 65536),
-        topK: Map.get(config, :top_k, 40),
-        topP: Map.get(config, :top_p, 0.95)
+    payload =
+      %{
+        contents: contents,
+        generationConfig: build_generation_config(config)
       }
-    }
+      |> maybe_put_tools(config)
 
     headers = build_headers(config)
     http_opts = build_http_opts(config)
@@ -179,15 +176,12 @@ defmodule AxiomAi.Provider.VertexAi do
 
     contents = build_contents(system_prompt, history, prompt, files)
 
-    payload = %{
-      contents: contents,
-      generationConfig: %{
-        temperature: Map.get(config, :temperature, 0.7),
-        maxOutputTokens: Map.get(config, :max_tokens, 65536),
-        topK: Map.get(config, :top_k, 40),
-        topP: Map.get(config, :top_p, 0.95)
+    payload =
+      %{
+        contents: contents,
+        generationConfig: build_generation_config(config)
       }
-    }
+      |> maybe_put_tools(config)
 
     headers = build_headers(config)
     http_opts = build_http_opts(config)
@@ -344,6 +338,33 @@ defmodule AxiomAi.Provider.VertexAi do
       recv_timeout: Map.get(config, :recv_timeout, 30_000)
     ]
   end
+
+  # Adjunta `tools` al payload cuando el config las trae (p. ej. Google Search
+  # grounding: `[%{googleSearch: %{}}]`). Si no hay tools, el payload no cambia.
+  defp maybe_put_tools(payload, config) do
+    case Map.get(config, :tools) do
+      tools when is_list(tools) and tools != [] -> Map.put(payload, :tools, tools)
+      _ -> payload
+    end
+  end
+
+  # generationConfig base + overrides opcionales desde el config:
+  #   :response_mime_type -> responseMimeType (p. ej. "application/json")
+  #   :response_schema    -> responseSchema  (fuerza salida estructurada)
+  # Útil para clasificadores que deben devolver JSON confiable.
+  defp build_generation_config(config) do
+    %{
+      temperature: Map.get(config, :temperature, 0.7),
+      maxOutputTokens: Map.get(config, :max_tokens, 65536),
+      topK: Map.get(config, :top_k, 40),
+      topP: Map.get(config, :top_p, 0.95)
+    }
+    |> maybe_put(:responseMimeType, Map.get(config, :response_mime_type))
+    |> maybe_put(:responseSchema, Map.get(config, :response_schema))
+  end
+
+  defp maybe_put(map, _key, nil), do: map
+  defp maybe_put(map, key, value), do: Map.put(map, key, value)
 
   defp parse_response(body) do
     case Jason.decode(body) do
