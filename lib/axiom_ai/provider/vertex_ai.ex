@@ -9,7 +9,6 @@ defmodule AxiomAi.Provider.VertexAi do
 
   alias AxiomAi.Http
 
-  @base_url "https://us-central1-aiplatform.googleapis.com/v1"
 
   @impl true
   def chat(config, message) do
@@ -311,9 +310,15 @@ defmodule AxiomAi.Provider.VertexAi do
   end
 
   defp build_endpoint(project_id, region, model, action) do
-    base_region_url = String.replace(@base_url, "us-central1", region)
+    # El endpoint global usa host `aiplatform.googleapis.com` (sin prefijo de
+    # región); el regional usa `<region>-aiplatform.googleapis.com`. Los modelos
+    # nuevos (Gemini 3.x) son global-only, así que esto debe ser correcto.
+    host =
+      if region == "global",
+        do: "aiplatform.googleapis.com",
+        else: "#{region}-aiplatform.googleapis.com"
 
-    "#{base_region_url}/projects/#{project_id}/locations/#{region}/publishers/google/models/#{model}:#{action}"
+    "https://#{host}/v1/projects/#{project_id}/locations/#{region}/publishers/google/models/#{model}:#{action}"
   end
 
   defp build_headers(config) do
